@@ -168,15 +168,26 @@ Every presentation must include:
    - Magnetic buttons
    - Counter animations
 
-4. **Inline Editing** (included by default after draft generation):
+4. **Visual Deck Editor** (included by default after draft generation):
    - Edit toggle button (hidden by default, revealed via hover hotzone or `E` key)
-   - Auto-save to localStorage
-   - Export/save file functionality
-   - See "Inline Editing Implementation" section below
+   - HTML-adaptive object detection, auto-save to localStorage, undo, snapping, image replacement, and save/download
+   - See "Visual Deck Editor Implementation" section below
 
-## Inline Editing Implementation
+## Visual Deck Editor Implementation
 
-Inline editing is a lightweight post-draft affordance. Do not ask the user whether they want it during the pre-generation Q&A. Include it by default unless the user explicitly asks for a locked/export-only presentation or no editing controls.
+The visual deck editor is a lightweight post-draft affordance. Do not ask the user whether they want it during the pre-generation Q&A. Include it by default unless the user explicitly asks for a locked/export-only presentation or no editing controls.
+
+The editor must understand ordinary slide HTML instead of requiring every editable object to be pre-marked. At startup, scan the fixed-stage deck (`#deckStage` / `.deck-stage`, `.slide`) and infer editable objects from the rendered DOM:
+
+- Text: headings, paragraphs, list items, table cells, code/pre blocks, inline text, and visible leaf text nodes
+- Media: `img`, `picture`, `video`, `canvas`, `svg`, CSS background images, and media-like descendants
+- Visual boxes: rendered elements with meaningful size plus background, border, shadow, clip-path, SVG/canvas/media content, or obvious shape styling
+
+`data-editable`, `data-editable-media`, and `data-editable-box` are optional hints only. Use them to improve accuracy when helpful, but never make the editor depend on those attributes. Temporary markers created by detection, such as `data-editor-kind` or `data-editor-auto`, must be removed from saved/exported HTML.
+
+Minimum editor controls: left slide rail, right inspector, text editing in the inspector, drag/drop image replacement, choose-file image replacement, add text, add shape through a shape menu, font/color/layout/motion controls, multi-step undo with Command/Ctrl+Z, snapping guides, and one visible Save button that downloads the current `index.html`.
+
+Font editing should be lightweight by default. The font selector should reuse existing deck CSS variables such as `--font-display`, `--font-body`, and `--font-mono`, or already-loaded font stacks. Do not embed font files, base64 fonts, or add new font CDN links unless the user explicitly asks for custom font import.
 
 **Do NOT use CSS `~` sibling selector for hover-based show/hide.** The CSS-only approach (`edit-hotzone:hover ~ .edit-toggle`) fails because `pointer-events: none` on the toggle button breaks the hover chain: user hovers hotzone -> button becomes visible -> mouse moves toward button -> leaves hotzone -> button disappears before click.
 
