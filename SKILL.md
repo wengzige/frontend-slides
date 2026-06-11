@@ -219,7 +219,7 @@ If the user selected a bold template from `bold-template-pack`, read that one te
 - Preserve its fonts, palette, decorative vocabulary, spacing rhythm, and component grammar.
 - Generate the final deck as a fixed 1920×1080 stage scaled uniformly to the viewport, regardless of whether the source template originally used `deck-stage.js` or viewport-fluid CSS.
 - Treat viewport-fluid values in `design.md` as design proportions to translate into 1920×1080 stage coordinates. Do not keep them as live viewport reflow rules in the final deck.
-- Keep the output as a single self-contained Frontend Slides HTML file.
+- Keep the deck as a portable project folder named after the presentation. The entry file is `index.html`; CSS/JS stay inline in that HTML, while images/videos and other media live beside it under `assets/`.
 - Do not copy demo slide content or mimic the source template too literally.
 - Use `template.html` only as a last-resort implementation reference for the selected template.
 - After generating, verify both content overflow and panel overlap in rendered browser screenshots. `scrollHeight` checks alone are not enough because grid panels can visually cover each other.
@@ -229,7 +229,7 @@ If the user selected a self-generated custom wildcard, treat that preview's CSS 
 - Preserve its fonts, palette, decorative vocabulary, spacing rhythm, grid logic, and component grammar.
 - Expand the same visual system across the full deck. Do not switch to a preset or bold template after the user has chosen the custom direction.
 - Design any missing slide layouts from that system rather than importing patterns from another style.
-- Keep the output fixed-stage, single-file, and visually verified like every other deck.
+- Keep the output fixed-stage, folder-packaged, and visually verified like every other deck.
 
 **Before generating, read these supporting files:**
 
@@ -239,11 +239,28 @@ If the user selected a self-generated custom wildcard, treat that preview's CSS 
 
 **Key requirements:**
 
-- Single self-contained HTML file, all CSS/JS inline
+- Portable project folder named after the presentation, with `index.html` as the entry file and all CSS/JS inline
+- Put every referenced image/video/media asset inside the same folder, normally under `assets/`, using relative paths such as `assets/hero.png`
 - Include the FULL contents of viewport-base.css in the `<style>` block
+- Include the reusable visual deck editor from `html-template.md` by default, unless the user explicitly asks for a locked/export-only file
 - Use fonts from Fontshare or Google Fonts — never system fonts
 - Add detailed comments explaining each section
 - Every section needs a clear `/* === SECTION NAME === */` comment block
+
+### Universal Visual Editor Contract
+
+The post-draft editor is a general `frontend-slides` feature, not a one-off enhancement for a single deck. The editor must adapt to ordinary slide HTML; do not make the HTML adapt to a brittle editor.
+
+- Target the fixed presentation contract: `#deckStage` / `.deck-stage`, `.slide`, and 1920x1080 stage coordinates. Do not hard-code a project name, deck title, or slide-specific class into the editor core.
+- Discover editable objects from normal DOM first. Infer text from headings, paragraphs, lists, table cells, inline text nodes, code/pre blocks, and visible leaf text. Infer media from `img`, `picture`, `video`, `canvas`, `svg`, CSS background images, and media-like descendants. Infer visual boxes from rendered size plus visible background, border, shadow, clip-path, or SVG/canvas/media content.
+- Treat `data-editable`, `data-editable-media`, and `data-editable-box` only as optional hints or overrides. They may improve accuracy, but the editor must still work on reasonable HTML that has no editor-specific attributes.
+- Keep editor-generated detection markers temporary. Save/export must remove editor chrome, selection outlines, snapping guides, temporary handles, `contenteditable`, and auto-detection attributes so the resulting HTML remains clean and portable.
+- Derive `localStorage` keys from the current file identity, for example `frontend-slides:${location.pathname}:${document.title}:visual-edits:v1`; never use a deck-specific key such as `<project-name>-visual-edits`.
+- Editing controls should be usable across decks: press `E` to enter, use a left slide rail and right inspector, edit selected text in the inspector, drag/drop or choose images, add text, choose a shape after clicking Add Shape, edit font/color/layout/motion, delete user-added layers, and use a single visible Save button that downloads the current HTML.
+- Font editing should stay lightweight by default: expose a font-family selector that reuses the deck's existing CSS font variables or already-loaded font stacks. Do not embed font files, base64 fonts, or add new font CDNs unless the user explicitly requests custom font import.
+- Include real undo support: an undo button plus Command/Ctrl+Z, backed by a multi-step history stack.
+- Include layout snapping guides for dragging/resizing: snap to stage edges/center, other editable objects, media, shapes, and fine-grained text/code lines. Nested text targets should be recognized with lower priority so they help alignment without overpowering major layout targets.
+- Make the implementation portable and zero-dependency. The generated folder must still work after zip/unzip by opening `index.html` directly.
 
 ---
 
@@ -260,13 +277,15 @@ When converting PowerPoint files:
 
 ## Phase 5: Delivery
 
-1. **Clean up** — Delete `.frontend-slides/slide-previews/` if it exists
-2. **Open** — Use `open [filename].html` to launch in browser
-3. **Summarize** — Tell the user:
-   - File location, style name, slide count
+1. **Package** — Put the finished deck in one portable project folder named after the presentation. The folder must contain `index.html` plus any referenced assets under `assets/`. Do not leave the final deck as a loose standalone HTML file in the workspace root.
+2. **Clean up** — Delete `.frontend-slides/slide-previews/` if it exists
+3. **Open** — Open the packaged `index.html` in the browser. If local media or fonts need HTTP serving, start a local static server from the workspace and navigate to `/project-name/index.html`
+4. **Summarize** — Tell the user:
+   - Folder location, style name, slide count
+   - Transport/use: compress the whole project folder; after unzipping, open `index.html`
    - Navigation: Arrow keys, Space, swipe/tap if enabled
    - How to customize: `:root` CSS variables for colors, font link for typography, `.reveal` class for animations
-   - Inline text editing is available: Hover top-left corner or press E to enter edit mode, click any text to edit, Ctrl+S to save
+   - Visual editing is available: hover top-left or press E, select text/media/shape, edit text in the right panel, drag images in, use undo/snapping, and click Save to download the updated `index.html`
    - Offer the natural post-draft actions: ask for revisions, edit text directly in the browser, or export/share
 
 ---
