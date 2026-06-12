@@ -1,8 +1,10 @@
 # Frontend Slides
 
+[简体中文](README.zh-CN.md)
+
 A coding-agent skill for creating stunning HTML presentations — from scratch or by converting PowerPoint files. It is packaged as a Claude Code plugin, and the core `SKILL.md` can also be read by other coding agents with filesystem and shell access.
 
-This fork builds on the original Frontend Slides project and keeps the same user-facing mission: generate portable, zero-dependency HTML decks. The main fork-specific direction is to incubate the Visual Deck Editor as a first-class runtime here first, then split it into a separate repository only after the editor has a stable integration contract, demo decks outside this skill, and basic regression checks.
+This repository is a maintained fork of the original [zarazhangrui/frontend-slides](https://github.com/zarazhangrui/frontend-slides) project. It keeps the same user-facing mission: generate portable, zero-dependency HTML decks. The main fork-specific direction is to incubate the Visual Deck Editor as a first-class runtime here first, then split it into a separate repository only after the editor has a stable integration contract, demo decks outside this skill, and basic regression checks.
 
 ## What This Does
 
@@ -41,6 +43,33 @@ The best path for this fork is to keep Frontend Slides as the full presentation-
 4. Split the editor into its own GitHub repository only after it has a stable API, standalone demos, and basic browser regression checks.
 
 Until that point, editor changes should land in this fork so the feature can evolve with real generated decks instead of becoming a detached half-library.
+
+## Relationship To Upstream
+
+- **Original project** — [`zarazhangrui/frontend-slides`](https://github.com/zarazhangrui/frontend-slides) created the core Frontend Slides skill, plugin shape, and presentation-generation workflow.
+- **This fork** — [`wengzige/frontend-slides`](https://github.com/wengzige/frontend-slides) keeps that foundation and focuses on fork-specific improvements around portable folder output, visual deck editing, and clearer agent-facing documentation.
+- **Attribution and license** — The original project credit and MIT license are preserved. This fork does not present itself as the upstream source of Frontend Slides.
+- **Contribution direction** — Changes that are specific to this fork's editor incubation path should target this repository. Broad improvements that belong in the original project can still be proposed upstream separately.
+
+## Editor Independence
+
+The Visual Deck Editor is intentionally more independent than a one-off generated script, but it is not a fully separate product yet.
+
+What is independent today:
+
+- It has its own module documentation in [`visual-editor/`](visual-editor/README.md).
+- It is designed around a deck-neutral contract rather than a single generated presentation.
+- It infers editable text, media, SVG/canvas content, and shape-like boxes from ordinary slide HTML.
+- It works without npm, a backend, accounts, or cloud storage.
+- It saves clean portable HTML by removing editor chrome and temporary detection markers.
+
+What is still coupled today:
+
+- It is bundled through Frontend Slides generation rather than installed as an external package.
+- It expects the Frontend Slides fixed-stage contract: `#deckStage` or `.deck-stage`, `.slide`, and 1920x1080 stage coordinates.
+- It does not yet have a standalone public API, release artifact, demo matrix, or browser regression suite.
+
+The intended split point is clear: once those missing pieces exist, the editor can become its own repository and this fork can consume it as a bundled runtime or release artifact.
 
 ## Installation
 
@@ -99,6 +128,7 @@ If the agent can read GitHub repos or browse files, it should start from `SKILL.
 - `html-template.md`
 - `animation-patterns.md`
 - `bold-template-pack/`
+- `visual-editor/`
 - `scripts/`
 
 Some agents can also install the skill for you if they have filesystem access and a known local skills directory. If not, they can still follow `SKILL.md` directly for the current session.
