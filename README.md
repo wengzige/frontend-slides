@@ -2,7 +2,16 @@
 
 [English](README.en.md) · [原仓库 README](https://github.com/zarazhangrui/frontend-slides/blob/main/README.md)
 
-Frontend Slides 是一个给本地 coding agent 使用的演示文稿生成 skill。它可以从零生成 HTML 演示，也可以把 PowerPoint 转成网页演示。产物默认是一个可携带文件夹：根目录 `index.html`，素材放在 `assets/`，可以压缩、发送、解压后直接打开。
+**从想法或 PPT 生成漂亮 HTML 演示，然后直接在浏览器里改文字、换图片、调布局。**
+
+Frontend Slides 是一个给本地 coding agent 使用的演示文稿生成 skill。它可以从零生成 HTML 演示，也可以把 PowerPoint 转成网页演示。和普通“导出成 HTML”不同：生成后的 `index.html` 自带可视化编辑模式，打开后按 `E` 就能继续修改，并保存为干净、可携带的 HTML deck。
+
+## 为什么编辑器值得注意
+
+- **生成后还能继续改**：不是一次性静态页面，打开 `index.html` 就能进入编辑模式。
+- **直接改真实演示稿**：可编辑文字、替换图片、调整形状、字体、布局和部分入场动效。
+- **不用额外安装东西**：不需要 npm、后端、账号或云服务，压缩发给别人也能打开。
+- **保存结果干净**：保存时清理编辑器 UI、选择框和临时标记，仍然是普通可分享的 HTML 文件夹。
 
 ## 这个仓库是什么
 
@@ -13,7 +22,7 @@ Frontend Slides 是一个给本地 coding agent 使用的演示文稿生成 skil
 这个 fork 保留原项目方向，同时重点打磨：
 
 - 更清晰的便携文件夹输出：`index.html` + 本地 `assets/`
-- 生成 deck 内置的 Visual Deck Editor 运行时
+- 生成后的演示文稿自带可视化编辑模式
 - 更明确的 fork 安装、插件 metadata 和 agent 使用说明
 - 更清楚的编辑器契约和维护边界
 
@@ -25,12 +34,12 @@ Frontend Slides 是一个给本地 coding agent 使用的演示文稿生成 skil
 - 当前 fork：[`wengzige/frontend-slides`](https://github.com/wengzige/frontend-slides)
 - 原作者署名和 MIT License 保留
 - 这个 fork 不把自己说成原始上游项目
-- 和这个 fork 的生成流程、便携输出、内置编辑器运行时相关的改动优先进入这个 fork
+- 和这个 fork 的生成流程、便携输出、内置编辑模式相关的改动优先进入这个 fork
 - 更通用、适合所有 Frontend Slides 用户的改动，可以再单独考虑是否向上游提交
 
 ## Visual Deck Editor 到底是什么
 
-Visual Deck Editor 是生成 deck 里内置的一套编辑器运行时能力。它不是一个单独应用，也不是 npm 包。
+Visual Deck Editor 是写进生成后 `index.html` 里的浏览器编辑模式。它不是一个单独应用，也不是 npm 包。
 
 仓库里的 [`visual-editor/`](visual-editor/README.md) 目前是运行时契约文档目录，不是源码包。这个目录只有 README 是刻意的：它负责把编辑器支持什么、不支持什么、维护时要守住哪些边界写清楚。
 

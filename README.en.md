@@ -2,9 +2,18 @@
 
 [简体中文](README.md) · [Original upstream README](https://github.com/zarazhangrui/frontend-slides/blob/main/README.md)
 
-A coding-agent skill for creating stunning HTML presentations — from scratch or by converting PowerPoint files. It is packaged as a Claude Code plugin, and the core `SKILL.md` can also be read by other coding agents with filesystem and shell access.
+**Generate a polished HTML deck from an idea or PowerPoint, then edit the deck directly in the browser.**
 
-This repository is a maintained fork of the original [zarazhangrui/frontend-slides](https://github.com/zarazhangrui/frontend-slides) project. It keeps the same user-facing mission: generate portable, zero-dependency HTML decks. This fork focuses on a more polished generated-deck workflow: folder-first output, clearer agent instructions, and a built-in Visual Deck Editor runtime for post-generation edits.
+Frontend Slides is a coding-agent skill for creating HTML presentations from scratch or by converting PowerPoint files. The key difference from a plain HTML export: the generated `index.html` includes a built-in visual editing mode. Open it, press `E`, update text, replace images, adjust layout, and save a clean portable HTML deck.
+
+## Why The Editor Matters
+
+- **Edit after generation** — The deck is not a one-shot static page; open `index.html` and keep working.
+- **Edit the real presentation** — Change text, replace images, adjust shapes, fonts, layout, and some entrance motion.
+- **No extra app required** — No npm, backend, account, or cloud service. Zip the folder and it still opens.
+- **Clean saved output** — Save removes editor UI, selection overlays, and temporary markers so the deck remains ordinary portable HTML.
+
+This repository is a maintained fork of the original [zarazhangrui/frontend-slides](https://github.com/zarazhangrui/frontend-slides) project. It keeps the same user-facing mission: generate portable, zero-dependency HTML decks. This fork focuses on a more polished generated-deck workflow: folder-first output, clearer agent instructions, and built-in visual editing for post-generation changes.
 
 ## What This Does
 
@@ -52,9 +61,9 @@ The maintained scope is:
 - **Attribution and license** — The original project credit and MIT license are preserved. This fork does not present itself as the upstream source of Frontend Slides.
 - **Contribution direction** — Changes that are specific to this fork's generated-deck workflow and editor runtime should target this repository. Broad improvements that belong in the original project can still be proposed upstream separately.
 
-## Built-In Visual Editor Runtime
+## Built-In Visual Deck Editor
 
-The Visual Deck Editor is a built-in runtime capability for generated Frontend Slides decks. It is documented separately because it has a clear integration contract, not because `visual-editor/` currently contains a standalone source package.
+The Visual Deck Editor is a browser editing mode written into generated Frontend Slides decks. It is documented separately because it has a clear integration contract, not because `visual-editor/` currently contains a standalone source package.
 
 What exists today:
 
