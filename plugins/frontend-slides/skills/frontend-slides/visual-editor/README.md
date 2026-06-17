@@ -12,7 +12,7 @@ What exists today:
 
 - `editor-runtime.css` contains the fixed editor UI, selection, guide, modal, and motion-preview styles.
 - `editor-runtime.js` injects the fixed editor shell and exposes `FrontendSlidesEditor.mount(...)`.
-- Generated decks include these runtime files in their portable output folder and mount them from `index.html`.
+- Generated decks include `deck-stage.js` plus these runtime files in their portable output folder and mount them from `index.html`.
 - `html-template.md` defines how generated decks must wire this fixed runtime.
 - This document defines the runtime contract and maintenance boundaries.
 - The plugin copy keeps the same contract for installed Claude Code plugin users.
@@ -44,17 +44,19 @@ What this directory is not:
 
 The editor should stay deck-neutral but not pretend to be a generic web page builder.
 
-- Input: a fixed-stage HTML deck using `#deckStage` or `.deck-stage`, `.slide`, and 1920x1080 stage coordinates.
+- Input: a fixed-stage HTML deck using `<deck-stage id="deckStage" width="1920" height="1080">`, direct `.slide` children, and 1920x1080 stage coordinates. Legacy `.deck-stage` fallback may keep working, but new generated decks should use the built-in controller.
 - Detection: infer editable text, media, SVG/canvas content, and shape-like boxes from ordinary DOM first.
 - Hints: treat `data-editable`, `data-editable-media`, and `data-editable-box` as optional improvements, not requirements.
 - Storage: derive browser draft keys from file identity rather than a deck-specific project name.
-- Output: preserve the deck as a portable folder with root `index.html`, relative assets, and local `visual-editor/editor-runtime.*` files.
+- Layout: the editor owns its safe area. It calls `presentation.setEditorInsets(...)` when edit mode opens/closes/resizes, and the fixed `deck-stage.js` controller rescales the canvas inside that area so editor panels do not cover slide content.
+- Output: preserve the deck as a portable folder with root `index.html`, relative assets, local `deck-stage.js`, and local `visual-editor/editor-runtime.*` files.
 
 ## Maintenance Rules
 
 - Keep behavior aligned with `html-template.md`.
 - Keep this root document and the plugin copy in sync.
 - Treat `editor-runtime.css` and `editor-runtime.js` as the source of truth for editor behavior.
+- Treat `bold-template-pack/deck-stage.js` as the source of truth for generated deck navigation, scaling, and editor safe-area support.
 - Do not inline a newly generated editor into individual decks.
 - Do not broaden claims beyond the fixed-stage deck contract without implementation and verification.
 - If editor implementation is later packaged separately, update this document to describe the new layout.

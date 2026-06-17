@@ -239,10 +239,10 @@ If the user selected a self-generated custom wildcard, treat that preview's CSS 
 
 **Key requirements:**
 
-- Portable project folder named after the presentation, with `index.html` as the entry file and all CSS/JS inline
+- Portable project folder named after the presentation, with `index.html` as the entry file, local `deck-stage.js`, local `visual-editor/editor-runtime.css`, local `visual-editor/editor-runtime.js`, and all authored slide CSS/JS kept in the deck
 - Put every referenced image/video/media asset inside the same folder, normally under `assets/`, using relative paths such as `assets/hero.png`
 - Include the FULL contents of viewport-base.css in the `<style>` block
-- Include the reusable visual deck editor runtime from `html-template.md` by default, unless the user explicitly asks for a locked/export-only file
+- Include the fixed built-in `deck-stage.js` controller and reusable visual deck editor runtime from `html-template.md` by default, unless the user explicitly asks for a locked/export-only file
 - Use fonts from Fontshare or Google Fonts — never system fonts
 - Add detailed comments explaining each section
 - Every section needs a clear `/* === SECTION NAME === */` comment block
@@ -251,10 +251,11 @@ If the user selected a self-generated custom wildcard, treat that preview's CSS 
 
 The post-draft editor is a general `frontend-slides` feature, not a one-off enhancement for a single deck. The editor must adapt to ordinary slide HTML; do not make the HTML adapt to a brittle editor.
 
-This fork now treats the editor as a fixed first-class runtime inside Frontend Slides. Keep editor behavior deck-neutral, implemented in `visual-editor/editor-runtime.css` and `visual-editor/editor-runtime.js`, documented in `visual-editor/README.md`, and synchronized between the root skill files and the plugin copy.
+This fork now treats the editor and the deck controller as fixed first-class runtimes inside Frontend Slides. Keep editor behavior deck-neutral, implemented in `visual-editor/editor-runtime.css` and `visual-editor/editor-runtime.js`; keep slide navigation/scaling in the fixed `deck-stage.js` copied from `bold-template-pack/deck-stage.js`; document the contract in `visual-editor/README.md`; and synchronize root skill files, plugin copy, and local installed skill.
 
-- Target the fixed presentation contract: `#deckStage` / `.deck-stage`, `.slide`, and 1920x1080 stage coordinates. Do not hard-code a project name, deck title, or slide-specific class into the editor core.
-- Generated deck folders must include local copies of `visual-editor/editor-runtime.css` and `visual-editor/editor-runtime.js`, and `index.html` must mount the runtime with `window.FrontendSlidesEditor.mount(...)`. Do not inline or regenerate a fresh editor implementation for each deck.
+- Target the fixed presentation contract: `<deck-stage id="deckStage" width="1920" height="1080">`, direct `.slide` children, and 1920x1080 stage coordinates. The editor may also support legacy `.deck-stage` fallback, but new generated decks should use the built-in Web Component controller. Do not hard-code a project name, deck title, or slide-specific class into the editor core.
+- Generated deck folders must include local copies of `deck-stage.js`, `visual-editor/editor-runtime.css`, and `visual-editor/editor-runtime.js`; `index.html` must mount the runtime with `window.FrontendSlidesEditor.mount(...)` through the fixed `DeckStagePresentationAdapter` from `html-template.md`. Do not inline or regenerate a fresh editor or custom presentation controller for each deck.
+- The editor owns its editing safe area. When editing opens, it calls `presentation.setEditorInsets(...)`; the adapter forwards that to `<deck-stage>.setEditorInsets(...)`; `deck-stage.js` then rescales/centers the 1920x1080 canvas inside the remaining space. Do not solve editor panel overlap with deck-specific CSS offsets or page-specific transforms.
 - Discover editable objects from normal DOM first. Infer text from headings, paragraphs, lists, table cells, inline text nodes, code/pre blocks, and visible leaf text. Infer media from `img`, `picture`, `video`, `canvas`, `svg`, CSS background images, and media-like descendants. Infer visual boxes from rendered size plus visible background, border, shadow, clip-path, or SVG/canvas/media content.
 - Treat `data-editable`, `data-editable-media`, and `data-editable-box` only as optional hints or overrides. They may improve accuracy, but the editor must still work on reasonable HTML that has no editor-specific attributes.
 - Keep editor-generated detection markers temporary. Save/export must remove editor chrome, selection outlines, snapping guides, temporary handles, `contenteditable`, and auto-detection attributes so the resulting HTML remains clean and portable.

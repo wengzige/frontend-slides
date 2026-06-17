@@ -228,6 +228,10 @@
     return document.getElementById("deckStage") || document.querySelector(".deck-stage");
   }
 
+  function isDeckStageElement(element) {
+    return element && element.tagName && element.tagName.toLowerCase() === "deck-stage";
+  }
+
   function computeCurrentSlide(slides) {
     const activeIndex = slides.findIndex((slide) => slide.classList.contains("active") || slide.classList.contains("visible"));
     return activeIndex >= 0 ? activeIndex : 0;
@@ -273,8 +277,18 @@
     }
 
     if (typeof presentation.scaleStage !== "function") {
-      presentation.scaleStage = () => defaultScaleStage(stage);
+      presentation.scaleStage = () => {
+        if (isDeckStageElement(stage)) {
+          stage.fit?.();
+        } else {
+          defaultScaleStage(stage);
+        }
+      };
       window.addEventListener("resize", presentation.scaleStage);
+    }
+
+    if (typeof presentation.setEditorInsets !== "function" && typeof stage.setEditorInsets === "function") {
+      presentation.setEditorInsets = (insets) => stage.setEditorInsets(insets);
     }
 
     if (typeof presentation.injectChrome !== "function") presentation.injectChrome = () => {};
@@ -379,9 +393,13 @@
         this.frame.classList.remove("active");
         this.frame.removeAttribute("style");
         this.hideGuides();
-        this.stage.appendChild(this.guideV);
-        this.stage.appendChild(this.guideH);
-        this.stage.appendChild(this.frame);
+        const overlayHost = isDeckStageElement(this.stage)
+          ? this.stage.querySelector(".slide.active, .slide.visible, [data-deck-active]") || this.stage.querySelector(".slide")
+          : this.stage;
+        if (!overlayHost) return;
+        overlayHost.appendChild(this.guideV);
+        overlayHost.appendChild(this.guideH);
+        overlayHost.appendChild(this.frame);
       }
 
       ensureOverlayElement(id, className) {
@@ -683,7 +701,10 @@
           this.controls.dropZone.addEventListener(eventName, (event) => this.clearDrag(event));
         });
         window.addEventListener("drop", (event) => this.handleDrop(event));
-        window.addEventListener("resize", () => this.updateFrame());
+        window.addEventListener("resize", () => {
+          this.applyEditorLayout();
+          this.updateFrame();
+        });
       }
 
       bindEditableEvents() {
@@ -853,6 +874,19 @@
         }, 400);
       }
 
+      editorInsets() {
+        if (!this.isActive) return { left: 0, right: 0, top: 0, bottom: 0 };
+        if (window.innerWidth <= 960) {
+          return { left: 12, right: 12, top: 150, bottom: 260 };
+        }
+        return { left: 252, right: 354, top: 78, bottom: 20 };
+      }
+
+      applyEditorLayout() {
+        this.presentation.setEditorInsets?.(this.editorInsets());
+        this.presentation.scaleStage?.();
+      }
+
       toggleEditMode(force) {
         this.isActive = typeof force === "boolean" ? force : !this.isActive;
         document.body.classList.toggle("editing", this.isActive);
@@ -862,7 +896,8 @@
         this.getEditableElements().forEach((element) => {
           element.removeAttribute("contenteditable");
         });
-        this.presentation.scaleStage?.();
+        this.applyEditorLayout();
+        this.attachFrame();
         this.updateFrame();
         if (!this.isActive) {
           this.hideGuides();
@@ -1141,7 +1176,7 @@
       }
 
       stagePointFromClient(clientX, clientY) {
-        const rect = this.stage.getBoundingClientRect();
+        const rect = this.activeSlide().getBoundingClientRect();
         const scale = rect.width / 1920;
         return {
           x: (clientX - rect.left) / scale,
@@ -1151,7 +1186,7 @@
       }
 
       getStageBox(element) {
-        const stageRect = this.stage.getBoundingClientRect();
+        const stageRect = this.activeSlide().getBoundingClientRect();
         const rect = element.getBoundingClientRect();
         const scale = stageRect.width / 1920;
         return {
@@ -1609,7 +1644,7 @@
         document.body.classList.remove("dragging-file");
         this.controls.dropZone.classList.remove("dragging");
         const isDropZone = Boolean(event.target.closest(".drop-zone"));
-        const isStageDrop = Boolean(event.target.closest(".deck-stage"));
+        const isStageDrop = Boolean(event.target.closest(".deck-stage, deck-stage"));
         if (!isDropZone && !isStageDrop) {
           this.toastMessage("把图片拖到画布或图片区来添加");
           return;

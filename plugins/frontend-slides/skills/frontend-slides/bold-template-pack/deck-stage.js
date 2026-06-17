@@ -70,7 +70,10 @@
 
     .stage {
       position: absolute;
-      inset: 0;
+      left: var(--deck-stage-inset-left, 0px);
+      right: var(--deck-stage-inset-right, 0px);
+      top: var(--deck-stage-inset-top, 0px);
+      bottom: var(--deck-stage-inset-bottom, 0px);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -379,6 +382,7 @@
       overlay.querySelector('.reset').addEventListener('click', () => this._go(0, 'click'));
 
       this._root.append(style, stage, tapzones, overlay);
+      this._stage = stage;
       this._canvas = canvas;
       this._slot = slot;
       this._overlay = overlay;
@@ -533,8 +537,9 @@
         this._canvas.style.transform = 'none';
         return;
       }
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
+      const box = this._stage ? this._stage.getBoundingClientRect() : null;
+      const vw = box && box.width ? box.width : window.innerWidth;
+      const vh = box && box.height ? box.height : window.innerHeight;
       const s = Math.min(vw / this.designWidth, vh / this.designHeight);
       this._canvas.style.transform = `scale(${s})`;
     }
@@ -611,6 +616,20 @@
     next() { this._go(this._index + 1, 'api'); }
     prev() { this._go(this._index - 1, 'api'); }
     reset() { this._go(0, 'api'); }
+    fit() { this._fit(); }
+    setEditorInsets(insets = {}) {
+      const next = {
+        left: Math.max(0, Number(insets.left) || 0),
+        right: Math.max(0, Number(insets.right) || 0),
+        top: Math.max(0, Number(insets.top) || 0),
+        bottom: Math.max(0, Number(insets.bottom) || 0),
+      };
+      this.style.setProperty('--deck-stage-inset-left', `${next.left}px`);
+      this.style.setProperty('--deck-stage-inset-right', `${next.right}px`);
+      this.style.setProperty('--deck-stage-inset-top', `${next.top}px`);
+      this.style.setProperty('--deck-stage-inset-bottom', `${next.bottom}px`);
+      this._fit();
+    }
   }
 
   if (!customElements.get('deck-stage')) {

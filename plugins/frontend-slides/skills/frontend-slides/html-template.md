@@ -78,8 +78,7 @@ Reference architecture for generating slide presentations. Every presentation fo
     </style>
 </head>
 <body>
-    <div class="deck-viewport">
-        <main class="deck-stage" id="deckStage">
+    <deck-stage id="deckStage" width="1920" height="1080" aria-label="Presentation">
             <section class="slide title-slide active">
                 <h1 class="reveal">Presentation Title</h1>
                 <p class="reveal">Subtitle or author</p>
@@ -93,53 +92,75 @@ Reference architecture for generating slide presentations. Every presentation fo
             </section>
 
             <!-- More slides... -->
-        </main>
-    </div>
+    </deck-stage>
 
+    <script src="deck-stage.js"></script>
+    <script src="visual-editor/editor-runtime.js"></script>
     <script>
         /* ===========================================
-           SLIDE PRESENTATION CONTROLLER
+           FIXED DECK-STAGE ADAPTER
            =========================================== */
-        class SlidePresentation {
-            constructor() {
-                this.slides = document.querySelectorAll('.slide');
-                this.currentSlide = 0;
-                this.stage = document.getElementById('deckStage');
-                this.setupStageScale();
-                this.setupKeyboardNav();
-                this.setupTouchNav();
-                this.showSlide(0);
+        class DeckStagePresentationAdapter {
+            constructor(stage) {
+                this.stage = stage;
+                this.slides = Array.from(stage.querySelectorAll('.slide'));
+                this.currentSlide = Number.isFinite(stage.index) ? stage.index : 0;
+                this.syncActiveState(this.currentSlide);
+                this.stage.addEventListener('slidechange', (event) => {
+                    this.refreshSlides();
+                    this.currentSlide = event.detail.index;
+                    this.syncActiveState(this.currentSlide);
+                    document.dispatchEvent(new CustomEvent('slidechange', { detail: event.detail }));
+                    if (window.editor?.isActive) {
+                        window.editor.clearSelection?.();
+                        window.editor.attachFrame?.();
+                        window.editor.renderSlideRail?.();
+                    }
+                });
+                requestAnimationFrame(() => this.syncFromStage());
             }
 
-            setupStageScale() {
-                const scale = () => {
-                    const factor = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
-                    const x = (window.innerWidth - 1920 * factor) / 2;
-                    const y = (window.innerHeight - 1080 * factor) / 2;
-                    this.stage.style.transform = `translate(${x}px, ${y}px) scale(${factor})`;
-                };
-                scale();
-                window.addEventListener('resize', scale);
+            refreshSlides() {
+                this.slides = Array.from(this.stage.querySelectorAll('.slide'));
             }
 
-            setupKeyboardNav() {
-                // Arrow keys, Space, Page Up/Down
+            syncFromStage() {
+                this.refreshSlides();
+                this.currentSlide = Number.isFinite(this.stage.index) ? this.stage.index : this.currentSlide;
+                this.syncActiveState(this.currentSlide);
             }
 
-            setupTouchNav() {
-                // Touch/swipe support for mobile
+            syncActiveState(index) {
+                this.slides.forEach((slide, slideIndex) => {
+                    const visible = slideIndex === index;
+                    slide.classList.toggle('active', visible);
+                    slide.classList.toggle('visible', visible);
+                });
             }
 
             showSlide(index) {
-                this.currentSlide = Math.max(0, Math.min(index, this.slides.length - 1));
-                this.slides.forEach((slide, i) => {
-                    slide.classList.toggle('active', i === this.currentSlide);
-                    slide.classList.toggle('visible', i === this.currentSlide);
-                });
+                const target = Math.max(0, Math.min(index, this.slides.length - 1));
+                if (typeof this.stage.goTo === 'function') {
+                    this.stage.goTo(target);
+                } else {
+                    this.currentSlide = target;
+                    this.syncActiveState(target);
+                }
             }
+
+            scaleStage() {
+                this.stage.fit?.();
+            }
+
+            setEditorInsets(insets) {
+                this.stage.setEditorInsets?.(insets);
+            }
+
+            injectChrome() {}
         }
 
-        new SlidePresentation();
+        window.presentation = new DeckStagePresentationAdapter(document.getElementById('deckStage'));
+        window.editor = window.FrontendSlidesEditor.mount({ presentation: window.presentation });
     </script>
 </body>
 </html>
@@ -149,15 +170,17 @@ Reference architecture for generating slide presentations. Every presentation fo
 
 Every presentation must include:
 
-1. **SlidePresentation Class** — Main controller with:
+1. **Built-in `deck-stage.js` controller** — Copy the fixed runtime from `bold-template-pack/deck-stage.js` into the generated deck folder as `deck-stage.js`, then use `<deck-stage id="deckStage" width="1920" height="1080">` as the presentation root. Do not generate a custom `SlidePresentation` controller per deck. The built-in controller owns:
    - Keyboard navigation (arrows, space, page up/down)
    - Touch/swipe support
    - Mouse wheel navigation
-   - Optional progress indicator or page count, kept outside the slide stage
+   - Presenter overlay/page count, kept outside the slide content
+   - Fixed-stage scaling
+   - Editor safe-area support through `setEditorInsets(...)` and `fit()`
 
 2. **Stage Scaling** — For fixed 16:9 presentation behavior:
-   - Keep all slides at 1920×1080 inside `.deck-stage`
-   - Scale the whole stage with one transform
+   - Keep all slides at 1920×1080 as direct children of `<deck-stage>`
+   - Let `deck-stage.js` scale the whole canvas with one transform
    - Letterbox/pillarbox as needed; never reflow slide content per device
 
 3. **Optional Enhancements** (match to chosen style):
@@ -183,6 +206,7 @@ Project boundary: the editor is a fixed portable deck-editor runtime inside Fron
 Generated output folders must include a local copy of:
 
 ```text
+deck-stage.js
 visual-editor/editor-runtime.css
 visual-editor/editor-runtime.js
 ```
@@ -191,14 +215,15 @@ The generated `index.html` must load and mount that runtime instead of inlining 
 
 ```html
 <link rel="stylesheet" href="visual-editor/editor-runtime.css">
+<script src="deck-stage.js"></script>
 <script src="visual-editor/editor-runtime.js"></script>
 <script>
-  window.presentation = new SlidePresentation();
+  window.presentation = new DeckStagePresentationAdapter(document.getElementById("deckStage"));
   window.editor = window.FrontendSlidesEditor.mount({ presentation: window.presentation });
 </script>
 ```
 
-If the deck has its own presentation controller, expose `window.presentation` with `slides`, `currentSlide`, `showSlide(index)`, and preferably `scaleStage()`. The runtime provides a fallback adapter, but generated decks should expose those methods explicitly for predictable editing layout.
+Generated decks should use the fixed `DeckStagePresentationAdapter` shape shown above. It must expose `slides`, `currentSlide`, `showSlide(index)`, `scaleStage()`, and `setEditorInsets(insets)`. The editor owns the safe-area values; the adapter only forwards them to `<deck-stage>`.
 
 The editor must understand ordinary slide HTML instead of requiring every editable object to be pre-marked. At startup, scan the fixed-stage deck (`#deckStage` / `.deck-stage`, `.slide`) and infer editable objects from the rendered DOM:
 
