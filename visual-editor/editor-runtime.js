@@ -311,11 +311,18 @@
         this.lastInsert = { x: 720, y: 300 };
         this.snapThreshold = 12;
         this.motionFrameRaf = null;
+        this.motionCleanupTimers = new WeakMap();
+        this.motionStableBoxes = new WeakMap();
+        this.motionStableAncestors = new WeakMap();
+        this.motionAncestorCounts = new WeakMap();
+        this.lastSlideReplay = { index: -1, at: 0 };
+        this.motionHold = false;
         this.pendingConfirm = null;
         this.deleteConfirmKey = `${this.storageKey}:delete-confirm-seen`;
         this.fileHandle = null;
         this.toggle = document.getElementById("editToggle");
         this.hotzone = document.querySelector(".edit-hotzone");
+        this.shell = document.getElementById("editorShell");
         this.stage = document.getElementById("deckStage");
         this.frame = document.getElementById("editorFrame");
         this.frameMove = document.getElementById("frameMove");
@@ -384,6 +391,7 @@
         this.bindControls();
         this.bindEditableEvents();
         this.updateInspector();
+        requestAnimationFrame(() => this.replayActiveSlideMotion(false));
       }
 
       attachFrame() {
@@ -393,13 +401,9 @@
         this.frame.classList.remove("active");
         this.frame.removeAttribute("style");
         this.hideGuides();
-        const overlayHost = isDeckStageElement(this.stage)
-          ? this.stage.querySelector(".slide.active, .slide.visible, [data-deck-active]") || this.stage.querySelector(".slide")
-          : this.stage;
-        if (!overlayHost) return;
-        overlayHost.appendChild(this.guideV);
-        overlayHost.appendChild(this.guideH);
-        overlayHost.appendChild(this.frame);
+        this.shell.appendChild(this.guideV);
+        this.shell.appendChild(this.guideH);
+        this.shell.appendChild(this.frame);
       }
 
       ensureOverlayElement(id, className) {
@@ -422,9 +426,10 @@
       }
 
       prepareEditableElements() {
-        this.stage.querySelectorAll("[data-editor-auto], [data-editor-kind]").forEach((element) => {
+        this.stage.querySelectorAll("[data-editor-auto], [data-editor-kind], [data-editor-small]").forEach((element) => {
           delete element.dataset.editorAuto;
           delete element.dataset.editorKind;
+          delete element.dataset.editorSmall;
         });
         const candidates = Array.from(this.stage.querySelectorAll(".slide *")).filter((element) => !this.shouldIgnoreEditorCandidate(element));
         candidates.forEach((element) => {
@@ -447,13 +452,18 @@
       markEditorKind(element, kind, automatic) {
         element.dataset.editorKind = kind;
         if (automatic) element.dataset.editorAuto = "true";
+        if (this.isSmallEditableElement(element)) {
+          element.dataset.editorSmall = "true";
+        } else {
+          delete element.dataset.editorSmall;
+        }
       }
 
       shouldIgnoreEditorCandidate(element) {
         if (element.closest(".editor-shell, .editor-frame, .editor-guide")) return true;
         if (element.closest("[data-generated-chrome]")) return true;
-        if (element.closest("svg") && element.tagName.toLowerCase() !== "svg") return true;
         if (element.matches("script, style, template, meta, link, br, wbr, defs, clipPath, mask, pattern, linearGradient, radialGradient, stop, source, track")) return true;
+        if (this.isSvgDefinitionElement(element)) return true;
         if (element.matches(".deck-progress, .deck-count, .deck-controls, .edit-hotzone, .edit-toggle")) return true;
         return false;
       }
@@ -472,6 +482,7 @@
       inferEditorKind(element, options = {}) {
         const onlyBoxes = options.onlyBoxes === true;
         const includeBoxes = options.includeBoxes !== false;
+        if (!onlyBoxes && this.isSvgTextCandidate(element)) return "text";
         if (!onlyBoxes && (element.matches(this.mediaSelector()) || this.isBackgroundMediaCandidate(element) || this.isMediaWrapperCandidate(element))) return "media";
         if (!onlyBoxes && this.isTextCandidate(element)) return "text";
         if (includeBoxes && this.isVisualBoxCandidate(element)) return "box";
@@ -483,8 +494,9 @@
       }
 
       isTextCandidate(element) {
+        if (this.isSvgTextCandidate(element)) return true;
         if (!this.hasVisibleText(element)) return false;
-        const rect = element.getBoundingClientRect();
+        const rect = this.elementClientRect(element);
         if (rect.width < 2 || rect.height < 2) return false;
         if (element.querySelector(this.mediaSelector())) return false;
         const textTags = "h1,h2,h3,h4,h5,h6,p,li,blockquote,figcaption,caption,td,th,button,a,label,span,small,strong,em,b,i,code,pre";
@@ -508,8 +520,8 @@
       }
 
       isVisualBoxCandidate(element) {
-        const rect = element.getBoundingClientRect();
-        if (rect.width < 24 || rect.height < 18) return false;
+        if (this.isSvgGraphicCandidate(element)) return true;
+        const rect = this.elementClientRect(element);
         if (rect.width > 1700 && rect.height > 850) return false;
         if (element.matches("main, article, nav, header, footer, form, ul, ol, table, tbody, thead, tr, section.slide")) return false;
         if (this.isBroadLayoutContainer(element)) return false;
@@ -519,7 +531,188 @@
         const hasBackground = style.backgroundImage !== "none" || !["rgba(0, 0, 0, 0)", "transparent"].includes(style.backgroundColor);
         const hasShape = style.clipPath !== "none" || style.boxShadow !== "none";
         const hasMedia = Boolean(element.querySelector(this.mediaSelector()));
-        return borderWidth || hasBackground || hasShape || hasMedia;
+        const hasPaint = borderWidth || hasBackground || hasShape || hasMedia;
+        if (!this.hasEditableBoxSize(rect, hasPaint)) return false;
+        return hasPaint;
+      }
+
+      hasEditableBoxSize(rect, hasPaint) {
+        if (!hasPaint) return false;
+        if (rect.width >= 24 && rect.height >= 18) return true;
+        const dotLike = rect.width >= 4 && rect.height >= 4;
+        const lineLike = (rect.width >= 16 && rect.height >= 1) || (rect.height >= 16 && rect.width >= 1);
+        return dotLike || lineLike;
+      }
+
+      isSmallEditableElement(element) {
+        const rect = this.elementClientRect(element);
+        if (!rect.width && !rect.height) return false;
+        return rect.width < 28 || rect.height < 28;
+      }
+
+      isSvgElement(element) {
+        return typeof SVGElement !== "undefined" && element instanceof SVGElement;
+      }
+
+      svgTagName(element) {
+        return element?.tagName ? element.tagName.toLowerCase() : "";
+      }
+
+      isSvgDefinitionElement(element) {
+        if (!this.isSvgElement(element)) return false;
+        const tag = this.svgTagName(element);
+        return [
+          "defs",
+          "clippath",
+          "mask",
+          "pattern",
+          "lineargradient",
+          "radialgradient",
+          "stop",
+          "filter",
+          "fegaussianblur",
+          "fecolormatrix",
+          "feblend",
+          "feoffset",
+          "feflood",
+          "femerge",
+          "femergenode",
+          "metadata",
+          "title",
+          "desc",
+          "style",
+          "script"
+        ].includes(tag);
+      }
+
+      isSvgTextCandidate(element) {
+        if (!this.isSvgElement(element)) return false;
+        const tag = this.svgTagName(element);
+        if (!["text", "tspan"].includes(tag)) return false;
+        if (!this.hasVisibleText(element)) return false;
+        return this.hasVisibleSvgPaint(element);
+      }
+
+      isSvgGraphicCandidate(element) {
+        if (!this.isSvgElement(element)) return false;
+        const tag = this.svgTagName(element);
+        if (tag === "svg" || this.isSvgDefinitionElement(element)) return false;
+        if (!["path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "use"].includes(tag)) return false;
+        if (!this.hasVisibleSvgPaint(element)) return false;
+        const rect = this.elementClientRect(element);
+        const paintedLine = (rect.width >= 2 && rect.height >= 0.5) || (rect.height >= 2 && rect.width >= 0.5);
+        const paintedDot = rect.width >= 2 && rect.height >= 2;
+        return paintedLine || paintedDot;
+      }
+
+      hasVisibleSvgPaint(element) {
+        const style = getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden" || Number.parseFloat(style.opacity || "1") === 0) return false;
+        const fill = element.getAttribute("fill") || style.fill;
+        const stroke = element.getAttribute("stroke") || style.stroke;
+        const tag = this.svgTagName(element);
+        const hasFill = this.isVisiblePaint(fill);
+        const hasStroke = this.isVisiblePaint(stroke);
+        if (tag === "line") return hasStroke;
+        return hasFill || hasStroke || this.svgTagName(element) === "text" || this.svgTagName(element) === "tspan";
+      }
+
+      elementClientRect(element) {
+        const rect = element.getBoundingClientRect();
+        if ((rect.width > 0 && rect.height > 0) || !this.isSvgElement(element) || this.svgTagName(element) === "svg") return rect;
+        const svg = element.ownerSVGElement;
+        if (!svg || typeof element.getBBox !== "function") return rect;
+        try {
+          const box = element.getBBox();
+          const svgRect = svg.getBoundingClientRect();
+          const viewBox = svg.viewBox && svg.viewBox.baseVal;
+          const scaleX = viewBox && viewBox.width ? svgRect.width / viewBox.width : 1;
+          const scaleY = viewBox && viewBox.height ? svgRect.height / viewBox.height : 1;
+          const computed = getComputedStyle(element);
+          const stroke = Number.parseFloat(computed.strokeWidth || element.getAttribute("stroke-width") || "0") || 0;
+          const rawWidth = Math.max(0, box.width * scaleX);
+          const rawHeight = Math.max(0, box.height * scaleY);
+          const width = Math.max(rect.width, rawWidth, stroke * scaleX);
+          const height = Math.max(rect.height, rawHeight, stroke * scaleY);
+          const left = svgRect.left + (box.x - (viewBox?.x || 0)) * scaleX - Math.max(0, width - rawWidth) / 2;
+          const top = svgRect.top + (box.y - (viewBox?.y || 0)) * scaleY - Math.max(0, height - rawHeight) / 2;
+          return {
+            x: left,
+            y: top,
+            left,
+            top,
+            width,
+            height,
+            right: left + width,
+            bottom: top + height
+          };
+        } catch (error) {
+          return rect;
+        }
+      }
+
+      distanceToRect(clientX, clientY, rect) {
+        const dx = clientX < rect.left ? rect.left - clientX : clientX > rect.right ? clientX - rect.right : 0;
+        const dy = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+        return Math.hypot(dx, dy);
+      }
+
+      hitSlopForRect(rect) {
+        const minSide = Math.min(rect.width, rect.height);
+        const maxSide = Math.max(rect.width, rect.height);
+        if (minSide <= 10 || maxSide <= 28) return 16;
+        if (minSide <= 22) return 10;
+        return 0;
+      }
+
+      pickNearbyEditableTarget(event) {
+        const active = this.activeSlide();
+        if (!active) return null;
+        const slideRect = active.getBoundingClientRect();
+        if (
+          event.clientX < slideRect.left ||
+          event.clientX > slideRect.right ||
+          event.clientY < slideRect.top ||
+          event.clientY > slideRect.bottom
+        ) {
+          return null;
+        }
+        let best = null;
+        this.getEditableElements().forEach((candidate, index) => {
+          if (candidate.closest(".slide") !== active) return;
+          if (candidate.closest(".editor-frame, .editor-guide")) return;
+          const rect = this.elementClientRect(candidate);
+          if (rect.width <= 0 && rect.height <= 0) return;
+          const slop = this.hitSlopForRect(rect);
+          if (!slop) return;
+          const expanded = {
+            left: rect.left - slop,
+            right: rect.right + slop,
+            top: rect.top - slop,
+            bottom: rect.bottom + slop
+          };
+          if (
+            event.clientX < expanded.left ||
+            event.clientX > expanded.right ||
+            event.clientY < expanded.top ||
+            event.clientY > expanded.bottom
+          ) {
+            return;
+          }
+          const distance = this.distanceToRect(event.clientX, event.clientY, rect);
+          const area = Math.max(1, rect.width * rect.height);
+          const score = distance + Math.min(12, area / 800) - index * 0.0001;
+          if (!best || score < best.score) best = { candidate, score };
+        });
+        return best ? best.candidate : null;
+      }
+
+      isDraggableEditable(element) {
+        return Boolean(
+          element &&
+          (element.classList.contains("editor-layer") ||
+            element.matches("[data-editable-media], [data-editable-box], [data-editor-kind='media'], [data-editor-kind='box']"))
+        );
       }
 
       hasCssBackgroundImage(element) {
@@ -529,7 +722,7 @@
 
       isBackgroundMediaCandidate(element) {
         if (!this.hasCssBackgroundImage(element)) return false;
-        const rect = element.getBoundingClientRect();
+        const rect = this.elementClientRect(element);
         if (rect.width < 96 || rect.height < 72) return false;
         if (element.matches("main, article, nav, header, footer, section.slide")) return false;
         return !this.isBroadLayoutContainer(element);
@@ -537,7 +730,7 @@
 
       isMediaWrapperCandidate(element) {
         if (element.matches("main, article, nav, header, footer, ul, ol, table, section.slide")) return false;
-        const rect = element.getBoundingClientRect();
+        const rect = this.elementClientRect(element);
         if (rect.width < 96 || rect.height < 72) return false;
         if (rect.width > 1700 && rect.height > 850) return false;
         if (this.isBroadLayoutContainer(element)) return false;
@@ -548,8 +741,8 @@
       }
 
       boundsMostlyMatch(container, child) {
-        const outer = container.getBoundingClientRect();
-        const inner = child.getBoundingClientRect();
+        const outer = this.elementClientRect(container);
+        const inner = this.elementClientRect(child);
         if (outer.width <= 0 || outer.height <= 0 || inner.width <= 0 || inner.height <= 0) return false;
         const areaRatio = (inner.width * inner.height) / (outer.width * outer.height);
         if (areaRatio < 0.55) return false;
@@ -564,7 +757,7 @@
       }
 
       hasCompositeEditableChildren(element) {
-        const rect = element.getBoundingClientRect();
+        const rect = this.elementClientRect(element);
         const children = Array.from(element.querySelectorAll("[data-editor-kind]")).filter((child) => {
           if (child === element || child.closest(".slide") !== element.closest(".slide")) return false;
           return this.isSubstantialDescendant(child, rect);
@@ -578,11 +771,12 @@
           if (!this.hasCompositeEditableChildren(element)) return;
           delete element.dataset.editorAuto;
           delete element.dataset.editorKind;
+          delete element.dataset.editorSmall;
         });
       }
 
       isSubstantialDescendant(child, parentRect) {
-        const rect = child.getBoundingClientRect();
+        const rect = this.elementClientRect(child);
         if (rect.width < 18 || rect.height < 14) return false;
         const parentArea = Math.max(1, parentRect.width * parentRect.height);
         const childArea = rect.width * rect.height;
@@ -603,7 +797,7 @@
         const style = getComputedStyle(element);
         if (!["grid", "flex"].includes(style.display)) return false;
         const substantialChildren = Array.from(element.children).filter((child) => {
-          const rect = child.getBoundingClientRect();
+          const rect = this.elementClientRect(child);
           return rect.width >= 36 && rect.height >= 24 && this.hasVisibleText(child);
         });
         return substantialChildren.length > 2;
@@ -671,6 +865,7 @@
         });
 
         document.addEventListener("keydown", (event) => this.handleKeydown(event));
+        document.addEventListener("slidechange", (event) => this.handleSlideChange(event));
         document.addEventListener("click", (event) => {
           if (!event.target.closest(".shape-picker-wrap") && !event.target.closest("#shapeMenu")) this.closeShapeMenu();
         });
@@ -717,7 +912,7 @@
         element.addEventListener("pointerdown", (event) => {
           if (!this.isActive) return;
           const target = this.getEditableTarget(event.target);
-          const canDragBody = target && (target.classList.contains("editor-layer") || target.matches("[data-editable-media], [data-editable-box], [data-editor-kind='media'], [data-editor-kind='box']"));
+          const canDragBody = this.isDraggableEditable(target);
           if (!canDragBody) return;
           event.preventDefault();
           event.stopPropagation();
@@ -812,7 +1007,8 @@
         if (this.selected && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
           event.preventDefault();
           const step = event.shiftKey ? 10 : 1;
-          const box = this.getStageBox(this.selected);
+          this.clearElementMotionState(this.selected);
+          const box = this.getStableStageBox(this.selected);
           const dx = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
           const dy = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
           this.setStagePosition(this.selected, box.x + dx, box.y + dy, box.width, box.height);
@@ -893,6 +1089,14 @@
         document.body.classList.toggle("editor-on", this.isActive);
         this.toggle.classList.toggle("active", this.isActive);
         this.showButtons();
+        if (this.isActive) {
+          this.motionHold = false;
+          window.clearTimeout(this.motionPreviewTimer);
+          this.motionPreviewTimer = null;
+          this.stopMotionFrameTracking();
+          const slide = this.activeSlide();
+          if (slide) this.clearMotionRunState(slide);
+        }
         this.getEditableElements().forEach((element) => {
           element.removeAttribute("contenteditable");
         });
@@ -903,6 +1107,10 @@
           this.hideGuides();
           this.save(false);
           this.clearSelection();
+          this.motionHold = false;
+          window.clearTimeout(this.motionPreviewTimer);
+          this.motionPreviewTimer = null;
+          requestAnimationFrame(() => this.replayActiveSlideMotion(false));
         }
         this.renderSlideRail();
       }
@@ -910,8 +1118,16 @@
       handleDocumentPointerDown(event) {
         if (!this.isActive) return;
         if (event.target.closest(".editor-shell") || event.target.closest(".editor-frame") || event.target.closest(".edit-toggle")) return;
-        const target = this.getEditableTarget(event.target);
-        if (target) return;
+        const directTarget = this.getEditableTarget(event.target);
+        if (directTarget) return;
+        const nearbyTarget = this.pickNearbyEditableTarget(event);
+        if (nearbyTarget) {
+          event.preventDefault();
+          event.stopPropagation();
+          this.select(nearbyTarget);
+          if (this.isDraggableEditable(nearbyTarget)) this.startPointerAction(event, "move");
+          return;
+        }
         this.clearSelection();
       }
 
@@ -945,11 +1161,13 @@
 
       select(element) {
         if (this.selected === element) {
+          this.reconcileStoredStagePosition(element, { mode: "sync" });
           this.updateFrame();
           return;
         }
         this.clearSelection(false);
         this.selected = element;
+        this.reconcileStoredStagePosition(element, { mode: "sync" });
         element.classList.add("editor-selected");
         this.updateFrame();
         this.updateInspector();
@@ -1009,14 +1227,15 @@
           return;
         }
 
+        this.reconcileStoredStagePosition(element, { mode: "sync" });
         const computed = window.getComputedStyle(element);
-        const box = this.getStageBox(element);
-        this.controls.text.value = textCapable ? element.innerText : "";
+        const box = this.getStableStageBox(element);
+        this.controls.text.value = textCapable ? this.getEditableText(element) : "";
         this.controls.shape.value = shapeCapable ? (element.dataset.shape || "rect") : "rect";
         this.controls.fontFamily.value = textCapable ? this.matchFontFamilyValue(computed.fontFamily) : "";
         this.controls.fontSize.value = Math.round(Number.parseFloat(computed.fontSize)) || "";
-        this.controls.color.value = this.toHex(computed.color);
-        this.controls.bg.value = this.toHex(computed.backgroundColor);
+        this.controls.color.value = this.toHex(this.editableTextColor(element, computed));
+        this.controls.bg.value = this.toHex(this.editableSurfaceColor(element, computed));
         this.controls.opacity.value = Math.round((Number.parseFloat(computed.opacity) || 1) * 100);
         this.controls.x.value = Math.round(box.x);
         this.controls.y.value = Math.round(box.y);
@@ -1050,7 +1269,7 @@
         const element = this.selected;
         if (!element) return;
         if (name === "text") {
-          element.innerText = this.controls.text.value;
+          this.setEditableText(element, this.controls.text.value);
         }
         if (name === "shape" && element.classList.contains("shape-layer")) {
           this.applyShape(element, this.controls.shape.value);
@@ -1064,11 +1283,13 @@
           }
         }
         if (name === "fontSize") element.style.fontSize = `${this.controls.fontSize.value}px`;
-        if (name === "color") element.style.color = this.controls.color.value;
-        if (name === "bg") element.style.backgroundColor = this.controls.bg.value;
+        if (name === "color") this.setEditableTextColor(element, this.controls.color.value);
+        if (name === "bg") this.setEditableSurfaceColor(element, this.controls.bg.value);
         if (name === "opacity") element.style.opacity = String((Number(this.controls.opacity.value) || 0) / 100);
         if (["x", "y", "width", "height"].includes(name)) {
-          const box = this.getStageBox(element);
+          this.clearElementMotionState(element);
+          this.reconcileStoredStagePosition(element, { mode: "sync" });
+          const box = this.getStableStageBox(element);
           const numberOrFallback = (value, fallback) => {
             if (value === "") return fallback;
             const number = Number(value);
@@ -1080,7 +1301,13 @@
           const height = Math.max(10, numberOrFallback(this.controls.height.value, box.height));
           this.setStagePosition(element, x, y, width, height);
         }
-        if (name === "anim") this.applyAnimation(element, this.controls.anim.value, true);
+        if (name === "anim") {
+          this.rememberMotionStableBox(element, this.reconcileStoredStagePosition(element, { mode: "sync" }) || this.getStableStageBox(element));
+          this.applyAnimation(element, this.controls.anim.value, true);
+          this.syncMotionControls(element);
+          this.save(false);
+          return;
+        }
         if (name === "order") {
           if (!this.usesCustomMotion(element)) return;
           const order = this.setMotionOrder(element, this.controls.order.value, true);
@@ -1119,6 +1346,69 @@
 
       isTextElement(element) {
         return element && element.matches("[data-editable], [data-editor-kind='text'], .text-layer");
+      }
+
+      getEditableText(element) {
+        if (!element) return "";
+        return this.isSvgElement(element) ? element.textContent : element.innerText;
+      }
+
+      setEditableText(element, value) {
+        if (!element) return;
+        if (this.isSvgElement(element)) {
+          element.textContent = value;
+        } else {
+          element.innerText = value;
+        }
+      }
+
+      editableTextColor(element, computed = getComputedStyle(element)) {
+        if (this.isSvgElement(element)) {
+          const fill = computed.fill || element.getAttribute("fill");
+          return this.isVisiblePaint(fill) ? fill : computed.color;
+        }
+        return computed.color;
+      }
+
+      editableSurfaceColor(element, computed = getComputedStyle(element)) {
+        if (this.isSvgElement(element)) {
+          const fill = computed.fill || element.getAttribute("fill");
+          if (this.isVisiblePaint(fill)) return fill;
+          const stroke = computed.stroke || element.getAttribute("stroke");
+          if (this.isVisiblePaint(stroke)) return stroke;
+        }
+        return computed.backgroundColor;
+      }
+
+      setEditableTextColor(element, value) {
+        if (this.isSvgElement(element)) {
+          element.style.fill = value;
+        } else {
+          element.style.color = value;
+        }
+      }
+
+      setEditableSurfaceColor(element, value) {
+        if (!this.isSvgElement(element)) {
+          element.style.backgroundColor = value;
+          return;
+        }
+        const tag = this.svgTagName(element);
+        if (["line", "polyline"].includes(tag)) {
+          element.style.stroke = value;
+          return;
+        }
+        const computed = getComputedStyle(element);
+        if (this.isVisiblePaint(computed.stroke) && !this.isVisiblePaint(computed.fill)) {
+          element.style.stroke = value;
+        } else {
+          element.style.fill = value;
+        }
+      }
+
+      isVisiblePaint(value) {
+        const paint = String(value || "").trim().toLowerCase();
+        return Boolean(paint && paint !== "none" && paint !== "transparent" && paint !== "rgba(0, 0, 0, 0)");
       }
 
       matchFontFamilyValue(value) {
@@ -1187,7 +1477,7 @@
 
       getStageBox(element) {
         const stageRect = this.activeSlide().getBoundingClientRect();
-        const rect = element.getBoundingClientRect();
+        const rect = this.elementClientRect(element);
         const scale = stageRect.width / 1920;
         return {
           x: (rect.left - stageRect.left) / scale,
@@ -1195,6 +1485,101 @@
           width: rect.width / scale,
           height: rect.height / scale
         };
+      }
+
+      clientBoxFromStageBox(box) {
+        const slideRect = this.activeSlide().getBoundingClientRect();
+        const scale = slideRect.width / 1920;
+        return {
+          x: slideRect.left + box.x * scale,
+          y: slideRect.top + box.y * scale,
+          width: box.width * scale,
+          height: box.height * scale,
+          scale
+        };
+      }
+
+      isElementMotionRunning(element) {
+        return Boolean(element && (element.classList.contains("editor-motion-preview") || element.classList.contains("editor-motion-running")));
+      }
+
+      rememberMotionStableBox(element, box = this.getStageBox(element)) {
+        if (!element || !box) return box;
+        const stableBox = {
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height
+        };
+        this.motionStableBoxes.set(element, stableBox);
+        return stableBox;
+      }
+
+      readStoredStageBox(element) {
+        if (!element) return null;
+        const x = Number.parseFloat(element.dataset.editStageX);
+        const y = Number.parseFloat(element.dataset.editStageY);
+        const width = Number.parseFloat(element.dataset.editStageWidth);
+        const height = Number.parseFloat(element.dataset.editStageHeight);
+        if (![x, y, width, height].every(Number.isFinite)) return null;
+        return { x, y, width, height };
+      }
+
+      storeStageBox(element, box) {
+        if (!element || !box) return;
+        element.dataset.editStageX = String(Math.round(box.x));
+        element.dataset.editStageY = String(Math.round(box.y));
+        element.dataset.editStageWidth = String(Math.round(box.width));
+        element.dataset.editStageHeight = String(Math.round(box.height));
+      }
+
+      isUsableStageBox(box) {
+        return Boolean(
+          box &&
+          [box.x, box.y, box.width, box.height].every(Number.isFinite) &&
+          box.width > 0 &&
+          box.height > 0
+        );
+      }
+
+      getStableStageBox(element) {
+        const storedBox = this.readStoredStageBox(element);
+        if (storedBox) {
+          this.rememberMotionStableBox(element, storedBox);
+          return storedBox;
+        }
+        if (this.isElementMotionRunning(element)) {
+          const stableBox = this.motionStableBoxes.get(element);
+          if (stableBox) return { ...stableBox };
+        }
+        return this.rememberMotionStableBox(element);
+      }
+
+      getFrameStageBox(element) {
+        if (!element) return null;
+        if (this.isElementMotionRunning(element)) return this.getStableStageBox(element);
+        const liveBox = this.getStageBox(element);
+        return this.isUsableStageBox(liveBox) ? liveBox : this.getStableStageBox(element);
+      }
+
+      reconcileStoredStagePosition(element, options = {}) {
+        const storedBox = this.readStoredStageBox(element);
+        if (!element || this.isElementMotionRunning(element)) return storedBox;
+        const liveBox = this.getStageBox(element);
+        if (!this.isUsableStageBox(liveBox)) return storedBox;
+        if (options.mode === "sync") {
+          this.storeStageBox(element, liveBox);
+          return this.rememberMotionStableBox(element, liveBox);
+        }
+        if (!storedBox || !element.classList.contains("edit-moved")) return storedBox || this.rememberMotionStableBox(element, liveBox);
+        const dx = Math.round(storedBox.x - liveBox.x);
+        const dy = Math.round(storedBox.y - liveBox.y);
+        if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) return storedBox;
+        const currentX = Number.parseFloat(element.style.getPropertyValue("--edit-x")) || 0;
+        const currentY = Number.parseFloat(element.style.getPropertyValue("--edit-y")) || 0;
+        element.style.setProperty("--edit-x", `${Math.round(currentX + dx)}px`);
+        element.style.setProperty("--edit-y", `${Math.round(currentY + dy)}px`);
+        return this.rememberMotionStableBox(element, storedBox);
       }
 
       clampStageBox(box, keepVisible = 24) {
@@ -1237,7 +1622,7 @@
         if (!element.classList.contains("editor-layer")) {
           this.rememberBaseTransform(element);
           const safe = this.clampStageBox({ x, y, width, height });
-          const box = this.getStageBox(element);
+          const box = this.getStableStageBox(element);
           const dx = Math.round(safe.x - box.x);
           const dy = Math.round(safe.y - box.y);
           const scaleX = safe.width > 0 && box.width > 0 ? safe.width / box.width : 1;
@@ -1256,6 +1641,8 @@
             element.style.setProperty("--edit-scale-x", `${Math.max(0.05, currentScaleX * scaleX).toFixed(3)}`);
             element.style.setProperty("--edit-scale-y", `${Math.max(0.05, currentScaleY * scaleY).toFixed(3)}`);
           }
+          this.storeStageBox(element, safe);
+          this.rememberMotionStableBox(element, safe);
           return;
         }
         const slide = element.closest(".slide");
@@ -1283,6 +1670,8 @@
         element.style.removeProperty("--edit-scale-x");
         element.style.removeProperty("--edit-scale-y");
         element.style.removeProperty("--edit-base-transform");
+        this.storeStageBox(element, { x: safeX, y: safeY, width: safeWidth, height: safeHeight });
+        this.rememberMotionStableBox(element, { x: safeX, y: safeY, width: safeWidth, height: safeHeight });
       }
 
       updateFrame() {
@@ -1290,11 +1679,13 @@
           this.frame.classList.remove("active");
           return;
         }
-        const box = this.getStageBox(this.selected);
-        this.frame.style.left = `${box.x}px`;
-        this.frame.style.top = `${box.y}px`;
-        this.frame.style.width = `${box.width}px`;
-        this.frame.style.height = `${box.height}px`;
+        const box = this.getFrameStageBox(this.selected);
+        const clientBox = this.clientBoxFromStageBox(box);
+        this.frame.style.left = `${clientBox.x}px`;
+        this.frame.style.top = `${clientBox.y}px`;
+        this.frame.style.width = `${clientBox.width}px`;
+        this.frame.style.height = `${clientBox.height}px`;
+        this.frame.dataset.smallSelection = String(box.width < 28 || box.height < 28);
         this.frame.classList.add("active");
       }
 
@@ -1302,6 +1693,43 @@
         if (!this.motionFrameRaf) return;
         window.cancelAnimationFrame(this.motionFrameRaf);
         this.motionFrameRaf = null;
+      }
+
+      clearMotionCleanupTimer(element) {
+        const timer = this.motionCleanupTimers.get(element);
+        if (!timer) return;
+        window.clearTimeout(timer);
+        this.motionCleanupTimers.delete(element);
+      }
+
+      clearMotionParentStability(root) {
+        if (!root) return;
+        root.querySelectorAll(".editor-motion-parent-stable").forEach((node) => node.classList.remove("editor-motion-parent-stable"));
+        this.motionStableAncestors = new WeakMap();
+        this.motionAncestorCounts = new WeakMap();
+      }
+
+      clearElementMotionState(element) {
+        if (!element) return;
+        this.clearMotionCleanupTimer(element);
+        this.releaseMotionAncestors(element);
+        element.classList.remove("editor-motion-preview", "editor-motion-running");
+        if (!element.dataset.editAnim) this.editorMotionClasses().forEach((className) => element.classList.remove(className));
+        if (this.selected === element) this.stopMotionFrameTracking();
+      }
+
+      handleSlideChange(event) {
+        if (this.motionHold || this.dragState) return;
+        const index = Number.isFinite(event?.detail?.index) ? event.detail.index : this.presentation.currentSlide;
+        const now = performance.now();
+        if (this.lastSlideReplay.index === index && now - this.lastSlideReplay.at < 90) return;
+        this.lastSlideReplay = { index, at: now };
+        this.stopMotionFrameTracking();
+        const slide = this.presentation.slides[index];
+        if (this.isActive && this.selected && slide && this.selected.closest(".slide") !== slide) {
+          this.clearSelection();
+        }
+        requestAnimationFrame(() => this.replayActiveSlideMotion(false));
       }
 
       trackFrameDuringMotion(element, totalMs) {
@@ -1314,7 +1742,6 @@
             this.updateFrame();
             return;
           }
-          this.updateFrame();
           if (performance.now() < endAt) {
             this.motionFrameRaf = window.requestAnimationFrame(tick);
           } else {
@@ -1455,14 +1882,20 @@
       }
 
       showGuides(guides) {
+        const slideRect = this.activeSlide().getBoundingClientRect();
+        const scale = slideRect.width / 1920;
         if (guides.x !== null) {
-          this.guideV.style.left = `${Math.round(guides.x)}px`;
+          this.guideV.style.left = `${slideRect.left + guides.x * scale}px`;
+          this.guideV.style.top = `${slideRect.top}px`;
+          this.guideV.style.height = `${1080 * scale}px`;
           this.guideV.classList.add("active");
         } else {
           this.guideV.classList.remove("active");
         }
         if (guides.y !== null) {
-          this.guideH.style.top = `${Math.round(guides.y)}px`;
+          this.guideH.style.left = `${slideRect.left}px`;
+          this.guideH.style.top = `${slideRect.top + guides.y * scale}px`;
+          this.guideH.style.width = `${1920 * scale}px`;
           this.guideH.classList.add("active");
         } else {
           this.guideH.classList.remove("active");
@@ -1478,7 +1911,12 @@
         if (!this.selected) return;
         event.preventDefault();
         event.stopPropagation();
-        const box = this.getStageBox(this.selected);
+        this.motionHold = true;
+        window.clearTimeout(this.motionPreviewTimer);
+        this.motionPreviewTimer = null;
+        const slide = this.activeSlide();
+        if (slide) this.clearMotionRunState(slide);
+        const box = this.getStableStageBox(this.selected);
         const point = this.stagePointFromClient(event.clientX, event.clientY);
         this.dragState = {
           mode,
@@ -1518,8 +1956,15 @@
 
       finishPointerAction() {
         if (!this.dragState) return;
+        const element = this.selected;
         this.dragState = null;
         this.hideGuides();
+        this.motionHold = false;
+        if (element) {
+          this.reconcileStoredStagePosition(element, { mode: "sync" });
+          this.updateFrame();
+          this.updateInspector();
+        }
         this.save(false, true);
       }
 
@@ -1743,6 +2188,19 @@
         return Boolean(element && element.dataset.editAnim && element.dataset.editAnim !== "none");
       }
 
+      syncMotionControls(element) {
+        if (!element) return;
+        this.controls.anim.value = this.getMotionSelectValue(element);
+        this.controls.order.value = element.dataset.editOrder || "";
+        this.controls.delay.value = Number.parseInt(element.dataset.editDelay || "0", 10);
+        this.controls.duration.value = Number.parseInt(element.dataset.editDuration || "640", 10);
+        this.controls.order.disabled = !this.usesCustomMotion(element);
+        this.controls.delay.disabled = !this.usesCustomMotion(element);
+        this.controls.duration.disabled = !this.usesCustomMotion(element);
+        this.controls.restoreMotion.disabled = !this.hasStoredOriginalMotion(element);
+        this.controls.motionStatus.textContent = this.getMotionStatus(element);
+      }
+
       motionLabel(value) {
         return {
           none: "无动效",
@@ -1803,6 +2261,9 @@
 
       applyAnimation(element, value, preview = false) {
         if (!element) return;
+        const stableBox = this.reconcileStoredStagePosition(element, { mode: "sync" }) || this.getStableStageBox(element);
+        this.clearElementMotionState(element);
+        this.rememberMotionStableBox(element, stableBox);
         this.ensureOriginalMotion(element);
         this.editorMotionClasses().forEach((className) => {
           element.classList.remove(className);
@@ -1845,6 +2306,8 @@
       restoreOriginalMotion(element, shouldSave = true) {
         if (!element) return;
         const original = (element.dataset.originalMotionClasses || "").split(/\s+/).filter(Boolean);
+        this.clearMotionCleanupTimer(element);
+        element.classList.remove("editor-motion-preview", "editor-motion-running");
         this.editorMotionClasses().forEach((className) => element.classList.remove(className));
         this.motionClasses().forEach((className) => element.classList.remove(className));
         original.forEach((className) => element.classList.add(className));
@@ -1868,40 +2331,140 @@
         this.motionPreviewTimer = window.setTimeout(() => this.previewMotion(), 180);
       }
 
-      previewMotion(element = this.selected) {
+      playableMotionTargets(slide) {
+        if (!slide) return [];
+        const selector = [
+          "[data-edit-anim]",
+          ...this.editorMotionClasses().map((className) => `.${className}`),
+          ...this.motionClasses().map((className) => `.${className}`)
+        ].join(", ");
+        return Array.from(new Set(slide.querySelectorAll(selector))).filter((element) => {
+          const value = this.currentMotionValue(element);
+          return value && value !== "none";
+        });
+      }
+
+      clearMotionRunState(root) {
+        root.querySelectorAll(".editor-motion-preview, .editor-motion-running").forEach((node) => {
+          this.clearElementMotionState(node);
+        });
+        this.clearMotionParentStability(root);
+      }
+
+      motionDurationForElement(element) {
+        return Math.max(100, Number(element.dataset.editDuration) || Number(this.controls.duration.value) || 640);
+      }
+
+      motionDelayForElement(element) {
+        return Math.max(0, Number(element.dataset.editDelay) || Number(this.controls.delay.value) || 0);
+      }
+
+      stabilizeMotionAncestors(element) {
+        const slide = element?.closest(".slide");
+        if (!element || !slide) return;
+        this.releaseMotionAncestors(element);
+        const ancestors = [];
+        let node = element.parentElement;
+        while (node && node !== slide) {
+          if (this.motionClasses().some((className) => node.classList.contains(className))) {
+            const count = this.motionAncestorCounts.get(node) || 0;
+            this.motionAncestorCounts.set(node, count + 1);
+            node.classList.add("editor-motion-parent-stable");
+            ancestors.push(node);
+          }
+          node = node.parentElement;
+        }
+        if (ancestors.length) this.motionStableAncestors.set(element, ancestors);
+      }
+
+      releaseMotionAncestors(element) {
+        const ancestors = this.motionStableAncestors.get(element);
+        if (!ancestors) return;
+        ancestors.forEach((node) => {
+          const next = Math.max(0, (this.motionAncestorCounts.get(node) || 0) - 1);
+          if (next) {
+            this.motionAncestorCounts.set(node, next);
+          } else {
+            this.motionAncestorCounts.delete(node);
+            node.classList.remove("editor-motion-parent-stable");
+          }
+        });
+        this.motionStableAncestors.delete(element);
+      }
+
+      usesEditorMotionPlayback(element, className = "") {
+        return Boolean(
+          element &&
+          (
+            className === "editor-motion-preview" ||
+            element.dataset.editAnim ||
+            element.classList.contains("edit-moved") ||
+            this.editorMotionClasses().some((motionClass) => element.classList.contains(motionClass))
+          )
+        );
+      }
+
+      restartElementMotion(element, className = "editor-motion-running") {
         if (!element) return;
         const value = this.currentMotionValue(element);
         if (!value || value === "none") {
-          this.toastMessage("当前元素没有可预览的入场动效");
-          return;
+          return false;
         }
+        this.reconcileStoredStagePosition(element);
+        this.rememberMotionStableBox(element, this.getStableStageBox(element));
         const previewClass = `editor-anim-${value}`;
         const hadClass = element.classList.contains(previewClass);
-        const duration = Math.max(100, Number(element.dataset.editDuration) || Number(this.controls.duration.value) || 640);
-        const delay = Math.max(0, Number(element.dataset.editDelay) || Number(this.controls.delay.value) || 0);
-        element.style.setProperty("--edit-delay", `${delay}ms`);
-        element.style.setProperty("--edit-duration", `${duration}ms`);
-        element.classList.remove("editor-motion-preview");
+        const usesEditorMotion = this.usesEditorMotionPlayback(element, className);
+        const duration = this.motionDurationForElement(element);
+        const delay = this.motionDelayForElement(element);
+        this.clearMotionCleanupTimer(element);
+        if (usesEditorMotion) {
+          element.style.setProperty("--edit-delay", `${delay}ms`);
+          element.style.setProperty("--edit-duration", `${duration}ms`);
+        }
+        element.classList.remove("editor-motion-preview", "editor-motion-running");
         void element.offsetWidth;
-        element.classList.add(previewClass, "editor-motion-preview");
+        if (usesEditorMotion) {
+          this.stabilizeMotionAncestors(element);
+          element.classList.add(previewClass);
+        }
+        element.classList.add(className);
         this.trackFrameDuringMotion(element, delay + duration + 160);
-        window.clearTimeout(this.previewCleanupTimer);
-        this.previewCleanupTimer = window.setTimeout(() => {
-          element.classList.remove("editor-motion-preview");
+        const cleanupTimer = window.setTimeout(() => {
+          element.classList.remove(className);
           if (!hadClass && !element.dataset.editAnim) element.classList.remove(previewClass);
+          this.releaseMotionAncestors(element);
+          this.motionCleanupTimers.delete(element);
         }, delay + duration + 120);
+        this.motionCleanupTimers.set(element, cleanupTimer);
+        return true;
+      }
+
+      restartLegacySlideMotion(slide) {
+        const hasLegacyMotion = this.motionClasses().some((className) => slide.querySelector(`.${className}`));
+        if (!hasLegacyMotion) return;
+        slide.classList.remove("visible");
+        void slide.offsetWidth;
+        slide.classList.add("visible");
+      }
+
+      previewMotion(element = this.selected) {
+        if (!this.restartElementMotion(element, "editor-motion-preview")) {
+          this.toastMessage("当前元素没有可预览的入场动效");
+        }
       }
 
       replayActiveSlideMotion(showToast = true) {
         const slide = this.presentation.slides[this.presentation.currentSlide];
         if (!slide) return;
-        slide.querySelectorAll(".editor-motion-preview").forEach((node) => node.classList.remove("editor-motion-preview"));
-        slide.classList.remove("visible");
+        this.clearMotionRunState(slide);
+        const targets = this.playableMotionTargets(slide);
+        targets.forEach((element) => {
+          if (this.usesEditorMotionPlayback(element, "editor-motion-running")) this.stabilizeMotionAncestors(element);
+        });
         void slide.offsetWidth;
-        slide.classList.add("visible");
-        if (this.selected && this.selected.closest(".slide") === slide) {
-          this.trackFrameDuringMotion(this.selected, this.motionFrameTrackDuration(this.selected));
-        }
+        this.restartLegacySlideMotion(slide);
+        targets.forEach((element) => this.restartElementMotion(element));
         if (showToast) this.toastMessage("已重播本页动效");
       }
 
@@ -1959,15 +2522,17 @@
       cleanEditorArtifacts(root) {
         root.querySelectorAll("#editorFrame, #editorToast, #editorGuideV, #editorGuideH, .editor-guide, .editor-shell").forEach((node) => node.remove());
         root.querySelectorAll(".editor-selected").forEach((node) => node.classList.remove("editor-selected"));
-        root.querySelectorAll(".editor-motion-preview").forEach((node) => {
-          node.classList.remove("editor-motion-preview");
+        root.querySelectorAll(".editor-motion-parent-stable").forEach((node) => node.classList.remove("editor-motion-parent-stable"));
+        root.querySelectorAll(".editor-motion-preview, .editor-motion-running").forEach((node) => {
+          node.classList.remove("editor-motion-preview", "editor-motion-running");
           if (!node.dataset.editAnim) this.editorMotionClasses().forEach((className) => node.classList.remove(className));
         });
         root.querySelectorAll("[contenteditable]").forEach((node) => node.removeAttribute("contenteditable"));
         root.querySelectorAll("[data-editor-bound]").forEach((node) => delete node.dataset.editorBound);
-        root.querySelectorAll("[data-editor-auto], [data-editor-kind]").forEach((node) => {
+        root.querySelectorAll("[data-editor-auto], [data-editor-kind], [data-editor-small]").forEach((node) => {
           delete node.dataset.editorAuto;
           delete node.dataset.editorKind;
+          delete node.dataset.editorSmall;
         });
       }
 
@@ -2112,6 +2677,7 @@
       cleanCloneForExport(clone) {
         clone.querySelectorAll("[data-generated-chrome]").forEach((node) => node.remove());
         clone.querySelectorAll(".editor-selected").forEach((node) => node.classList.remove("editor-selected"));
+        clone.querySelectorAll(".editor-motion-parent-stable").forEach((node) => node.classList.remove("editor-motion-parent-stable"));
         clone.querySelectorAll("[contenteditable]").forEach((node) => node.removeAttribute("contenteditable"));
         clone.querySelectorAll("[data-editor-bound], [data-edit-id], [data-inline-image], [data-original-motion-classes]").forEach((node) => {
           delete node.dataset.editorBound;
@@ -2119,12 +2685,13 @@
           delete node.dataset.inlineImage;
           delete node.dataset.originalMotionClasses;
         });
-        clone.querySelectorAll("[data-editor-auto], [data-editor-kind]").forEach((node) => {
+        clone.querySelectorAll("[data-editor-auto], [data-editor-kind], [data-editor-small]").forEach((node) => {
           delete node.dataset.editorAuto;
           delete node.dataset.editorKind;
+          delete node.dataset.editorSmall;
         });
-        clone.querySelectorAll(".editor-motion-preview").forEach((node) => {
-          node.classList.remove("editor-motion-preview");
+        clone.querySelectorAll(".editor-motion-preview, .editor-motion-running").forEach((node) => {
+          node.classList.remove("editor-motion-preview", "editor-motion-running");
           if (!node.dataset.editAnim) this.editorMotionClasses().forEach((className) => node.classList.remove(className));
         });
         clone.querySelectorAll(".edit-toggle").forEach((node) => {

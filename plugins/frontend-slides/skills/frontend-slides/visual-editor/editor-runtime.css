@@ -597,30 +597,41 @@
       clip-path: polygon(0 36%, 66% 36%, 66% 14%, 100% 50%, 66% 86%, 66% 64%, 0 64%);
     }
 
-    .edit-moved {
+    .edit-moved:not(.editor-motion-preview):not(.editor-motion-running) {
       animation: none !important;
       transition: none !important;
       transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
       transform-origin: top left;
     }
 
-    .slide.visible .edit-moved.reveal,
-    .slide.visible .edit-moved.reveal-left,
-    .slide.visible .edit-moved.reveal-scale,
-    .slide.visible .edit-moved.editor-anim-rise,
-    .slide.visible .edit-moved.editor-anim-drop,
-    .slide.visible .edit-moved.editor-anim-left,
-    .slide.visible .edit-moved.editor-anim-right,
-    .slide.visible .edit-moved.editor-anim-scale,
-    .slide.visible .edit-moved.editor-anim-zoom,
-    .slide.visible .edit-moved.editor-anim-pop,
-    .slide.visible .edit-moved.editor-anim-rotate,
-    .slide.visible .edit-moved.editor-anim-blur,
-    .slide.visible .edit-moved.editor-anim-flip,
-    .slide.visible .edit-moved.editor-anim-fade {
+    .slide.visible .edit-moved.reveal:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.reveal-left:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.reveal-scale:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-rise:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-drop:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-left:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-right:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-scale:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-zoom:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-pop:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-rotate:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-blur:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-flip:not(.editor-motion-preview):not(.editor-motion-running),
+    .slide.visible .edit-moved.editor-anim-fade:not(.editor-motion-preview):not(.editor-motion-running) {
       opacity: 1;
       filter: none !important;
       transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
+    }
+
+    .slide.visible .editor-motion-parent-stable,
+    .editor-motion-parent-stable.reveal,
+    .editor-motion-parent-stable.reveal-left,
+    .editor-motion-parent-stable.reveal-scale {
+      opacity: 1 !important;
+      filter: none !important;
+      transform: none !important;
+      transition: none !important;
+      animation: none !important;
     }
 
     .editor-anim-none {
@@ -650,6 +661,7 @@
       transition-delay: var(--edit-delay, 0ms);
     }
 
+    .edit-moved.editor-anim-none,
     .edit-moved.editor-anim-fade,
     .edit-moved.editor-anim-rise,
     .edit-moved.editor-anim-drop,
@@ -660,13 +672,26 @@
     .edit-moved.editor-anim-pop,
     .edit-moved.editor-anim-rotate,
     .edit-moved.editor-anim-blur,
-    .edit-moved.editor-anim-flip {
+    .edit-moved.editor-anim-flip,
+    .edit-moved.editor-motion-preview,
+    .edit-moved.editor-motion-running {
+      transform-origin: top left !important;
+    }
+
+    .edit-moved.editor-anim-fade:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-rise:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-drop:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-left:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-right:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-scale:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-zoom:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-pop:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-rotate:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-blur:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-flip:not(.editor-motion-preview):not(.editor-motion-running) {
       animation: none !important;
-      transition:
-        opacity var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)),
-        transform var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)),
-        filter var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) !important;
-      transition-delay: var(--edit-delay, 0ms) !important;
+      transition: none !important;
+      transition-delay: 0ms !important;
     }
 
     .editor-anim-fade {
@@ -714,49 +739,20 @@
       transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) perspective(760px) rotateX(70deg) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0));
     }
 
-    .edit-moved.editor-anim-fade {
+    .edit-moved.editor-anim-fade:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-rise:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-drop:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-left:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-right:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-scale:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-zoom:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-pop:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-rotate:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-blur:not(.editor-motion-preview):not(.editor-motion-running),
+    .edit-moved.editor-anim-flip:not(.editor-motion-preview):not(.editor-motion-running) {
+      opacity: 1 !important;
+      filter: none !important;
       transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
-    }
-
-    .edit-moved.editor-anim-rise {
-      transform: translate(var(--edit-x, 0px), calc(var(--edit-y, 0px) + 34px)) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
-    }
-
-    .edit-moved.editor-anim-drop {
-      transform: translate(var(--edit-x, 0px), calc(var(--edit-y, 0px) - 42px)) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
-    }
-
-    .edit-moved.editor-anim-left {
-      transform: translate(calc(var(--edit-x, 0px) - 46px), var(--edit-y, 0px)) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
-    }
-
-    .edit-moved.editor-anim-right {
-      transform: translate(calc(var(--edit-x, 0px) + 46px), var(--edit-y, 0px)) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
-    }
-
-    .edit-moved.editor-anim-scale {
-      transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) scale(calc(var(--edit-scale-x, var(--edit-scale, 1)) * 0.92), calc(var(--edit-scale-y, var(--edit-scale, 1)) * 0.92)) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
-    }
-
-    .edit-moved.editor-anim-zoom {
-      transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) scale(calc(var(--edit-scale-x, var(--edit-scale, 1)) * 1.14), calc(var(--edit-scale-y, var(--edit-scale, 1)) * 1.14)) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
-    }
-
-    .edit-moved.editor-anim-pop {
-      transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) scale(calc(var(--edit-scale-x, var(--edit-scale, 1)) * 0.72), calc(var(--edit-scale-y, var(--edit-scale, 1)) * 0.72)) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
-    }
-
-    .edit-moved.editor-anim-rotate {
-      transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) rotate(-8deg) scale(calc(var(--edit-scale-x, var(--edit-scale, 1)) * 0.96), calc(var(--edit-scale-y, var(--edit-scale, 1)) * 0.96)) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
-    }
-
-    .edit-moved.editor-anim-blur {
-      filter: blur(14px);
-      transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) scale(calc(var(--edit-scale-x, var(--edit-scale, 1)) * 1.03), calc(var(--edit-scale-y, var(--edit-scale, 1)) * 1.03)) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
-    }
-
-    .edit-moved.editor-anim-flip {
-      transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) perspective(760px) rotateX(70deg) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
     }
 
     .slide.visible .editor-anim-fade,
@@ -775,7 +771,38 @@
       transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0));
     }
 
+    body.editing .editor-anim-fade:not(.editor-motion-preview):not(.editor-motion-running),
+    body.editing .editor-anim-rise:not(.editor-motion-preview):not(.editor-motion-running),
+    body.editing .editor-anim-drop:not(.editor-motion-preview):not(.editor-motion-running),
+    body.editing .editor-anim-left:not(.editor-motion-preview):not(.editor-motion-running),
+    body.editing .editor-anim-right:not(.editor-motion-preview):not(.editor-motion-running),
+    body.editing .editor-anim-scale:not(.editor-motion-preview):not(.editor-motion-running),
+    body.editing .editor-anim-zoom:not(.editor-motion-preview):not(.editor-motion-running),
+    body.editing .editor-anim-pop:not(.editor-motion-preview):not(.editor-motion-running),
+    body.editing .editor-anim-rotate:not(.editor-motion-preview):not(.editor-motion-running),
+    body.editing .editor-anim-blur:not(.editor-motion-preview):not(.editor-motion-running),
+    body.editing .editor-anim-flip:not(.editor-motion-preview):not(.editor-motion-running) {
+      opacity: 1 !important;
+      filter: none !important;
+      animation: none !important;
+      transition: none !important;
+      transform: translate(var(--edit-x, 0px), var(--edit-y, 0px)) scale(var(--edit-scale-x, var(--edit-scale, 1)), var(--edit-scale-y, var(--edit-scale, 1))) var(--edit-base-transform, matrix(1, 0, 0, 1, 0, 0)) !important;
+    }
+
+    body.editing .reveal,
+    body.editing .reveal-left,
+    body.editing .reveal-scale {
+      opacity: 1 !important;
+      filter: none !important;
+      animation: none !important;
+      transition: none !important;
+    }
+
     .editor-motion-preview.editor-anim-fade {
+      animation: editorPreviewFade var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
+    .editor-motion-running.editor-anim-fade {
       animation: editorPreviewFade var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
@@ -783,7 +810,15 @@
       animation: editorPreviewRise var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
+    .editor-motion-running.editor-anim-rise {
+      animation: editorPreviewRise var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
     .editor-motion-preview.editor-anim-left {
+      animation: editorPreviewLeft var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
+    .editor-motion-running.editor-anim-left {
       animation: editorPreviewLeft var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
@@ -791,7 +826,15 @@
       animation: editorPreviewScale var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
+    .editor-motion-running.editor-anim-scale {
+      animation: editorPreviewScale var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
     .editor-motion-preview.editor-anim-drop {
+      animation: editorPreviewDrop var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
+    .editor-motion-running.editor-anim-drop {
       animation: editorPreviewDrop var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
@@ -799,7 +842,15 @@
       animation: editorPreviewRight var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
+    .editor-motion-running.editor-anim-right {
+      animation: editorPreviewRight var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
     .editor-motion-preview.editor-anim-zoom {
+      animation: editorPreviewZoom var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
+    .editor-motion-running.editor-anim-zoom {
       animation: editorPreviewZoom var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
@@ -807,7 +858,15 @@
       animation: editorPreviewPop var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
+    .editor-motion-running.editor-anim-pop {
+      animation: editorPreviewPop var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
     .editor-motion-preview.editor-anim-rotate {
+      animation: editorPreviewRotate var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
+    .editor-motion-running.editor-anim-rotate {
       animation: editorPreviewRotate var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
@@ -815,7 +874,15 @@
       animation: editorPreviewBlur var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
+    .editor-motion-running.editor-anim-blur {
+      animation: editorPreviewBlur var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
     .editor-motion-preview.editor-anim-flip {
+      animation: editorPreviewFlip var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
+    }
+
+    .editor-motion-running.editor-anim-flip {
       animation: editorPreviewFlip var(--edit-duration, 640ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) var(--edit-delay, 0ms) both !important;
     }
 
@@ -947,7 +1014,7 @@
     }
 
     .editor-frame {
-      position: absolute;
+      position: fixed;
       display: none;
       z-index: 850;
       border: 2px solid #ff3d8b;
@@ -959,8 +1026,14 @@
       display: block;
     }
 
+    .editor-frame[data-small-selection="true"] {
+      min-width: 28px;
+      min-height: 28px;
+      transform: translate(-6px, -6px);
+    }
+
     .editor-guide {
-      position: absolute;
+      position: fixed;
       display: none;
       z-index: 840;
       background: #ff3d8b;
@@ -973,15 +1046,11 @@
     }
 
     .editor-guide.vertical {
-      top: 0;
       width: 2px;
-      height: 1080px;
       transform: translateX(-1px);
     }
 
     .editor-guide.horizontal {
-      left: 0;
-      width: 1920px;
       height: 2px;
       transform: translateY(-1px);
     }
@@ -1059,6 +1128,10 @@
       outline: 1.5px dashed rgba(31, 43, 224, 0.54);
       outline-offset: 5px;
       cursor: pointer;
+    }
+
+    body.editing [data-editor-small="true"] {
+      outline-offset: 9px;
     }
 
     body.editing .editor-selected {

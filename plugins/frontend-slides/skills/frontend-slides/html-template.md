@@ -225,7 +225,7 @@ The generated `index.html` must load and mount that runtime instead of inlining 
 
 Generated decks should use the fixed `DeckStagePresentationAdapter` shape shown above. It must expose `slides`, `currentSlide`, `showSlide(index)`, `scaleStage()`, and `setEditorInsets(insets)`. The editor owns the safe-area values; the adapter only forwards them to `<deck-stage>`.
 
-The editor must understand ordinary slide HTML instead of requiring every editable object to be pre-marked. At startup, scan the fixed-stage deck (`#deckStage` / `.deck-stage`, `.slide`) and infer editable objects from the rendered DOM:
+The editor must understand ordinary slide HTML instead of requiring every editable object to be pre-marked. At startup, scan the fixed-stage deck (`#deckStage` / `.deck-stage`, `.slide`) and infer editable objects from the rendered DOM. Tiny marks such as dots, rules, badges, corner marks, and SVG path/rect/circle fragments should still be selectable through the editor's small-element hit area:
 
 - Text: headings, paragraphs, list items, table cells, code/pre blocks, inline text, and visible leaf text nodes
 - Media: `img`, `picture`, `video`, `canvas`, `svg`, CSS background images, and media-like descendants

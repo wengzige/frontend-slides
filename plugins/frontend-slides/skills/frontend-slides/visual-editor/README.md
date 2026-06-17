@@ -46,6 +46,7 @@ The editor should stay deck-neutral but not pretend to be a generic web page bui
 
 - Input: a fixed-stage HTML deck using `<deck-stage id="deckStage" width="1920" height="1080">`, direct `.slide` children, and 1920x1080 stage coordinates. Legacy `.deck-stage` fallback may keep working, but new generated decks should use the built-in controller.
 - Detection: infer editable text, media, SVG/canvas content, and shape-like boxes from ordinary DOM first.
+- Selection: tiny marks, rules, badges, and SVG fragments should remain selectable through the editor's small-element hit area, even when their painted bounds are much smaller than the slide content around them.
 - Hints: treat `data-editable`, `data-editable-media`, and `data-editable-box` as optional improvements, not requirements.
 - Storage: derive browser draft keys from file identity rather than a deck-specific project name.
 - Layout: the editor owns its safe area. It calls `presentation.setEditorInsets(...)` when edit mode opens/closes/resizes, and the fixed `deck-stage.js` controller rescales the canvas inside that area so editor panels do not cover slide content.
