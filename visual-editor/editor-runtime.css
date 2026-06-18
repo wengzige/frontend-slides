@@ -43,6 +43,11 @@
       transition: opacity 180ms ease, visibility 180ms ease;
     }
 
+    .editor-shell,
+    .editor-shell * {
+      box-sizing: border-box;
+    }
+
     body.editing .editor-shell {
       visibility: visible;
       opacity: 1;
@@ -52,45 +57,50 @@
     .editor-slides,
     .editor-panel {
       pointer-events: auto;
-      border: 1px solid rgba(17, 17, 17, 0.16);
+      border: 1px solid rgba(17, 17, 17, 0.12);
       border-radius: 8px;
-      background: rgba(248, 246, 239, 0.94);
-      box-shadow: 0 18px 50px rgba(17, 17, 17, 0.16);
-      backdrop-filter: blur(14px);
+      background: rgba(248, 246, 239, 0.97);
+      box-shadow: 0 10px 26px rgba(17, 17, 17, 0.10);
+      backdrop-filter: blur(10px);
     }
 
     .editor-toolbar {
       position: fixed;
-      top: 14px;
-      left: 50%;
+      top: 12px;
+      left: 12px;
+      right: 12px;
       display: flex;
       flex-wrap: nowrap;
       gap: 8px;
       align-items: center;
-      max-width: calc(100vw - 28px);
+      justify-content: flex-start;
+      max-width: none;
       overflow-x: auto;
       padding: 8px;
-      transform: translateX(-50%);
+      scrollbar-width: thin;
     }
 
     .editor-slides {
       position: fixed;
       top: 76px;
-      bottom: 18px;
-      left: 14px;
-      width: 224px;
+      bottom: 14px;
+      left: 12px;
+      width: 242px;
       padding: 12px;
       overflow: auto;
+      scrollbar-width: thin;
     }
 
     .editor-panel {
       position: fixed;
       top: 76px;
-      right: 14px;
-      bottom: 18px;
-      width: 326px;
+      right: 12px;
+      bottom: 14px;
+      width: 342px;
       padding: 14px;
       overflow: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
     }
 
     .editor-title {
@@ -105,7 +115,7 @@
     .toolbar-select,
     .slide-chip {
       min-height: 34px;
-      border: 1px solid rgba(17, 17, 17, 0.18);
+      border: 1px solid rgba(17, 17, 17, 0.14);
       border-radius: 6px;
       background: #ffffff;
       color: #111111;
@@ -117,6 +127,32 @@
       flex: 0 0 auto;
       padding: 0 12px;
       white-space: nowrap;
+    }
+
+    .editor-button:hover:not(:disabled),
+    .toolbar-select:hover:not(:disabled),
+    .editor-select:hover:not(:disabled),
+    .editor-field:hover:not(:disabled),
+    .editor-textarea:hover:not(:disabled),
+    .slide-chip:hover {
+      border-color: rgba(17, 17, 17, 0.24);
+    }
+
+    .editor-button:active:not(:disabled),
+    .slide-chip:active {
+      transform: translateY(1px);
+    }
+
+    .editor-button:focus-visible,
+    .editor-select:focus-visible,
+    .editor-field:focus-visible,
+    .editor-textarea:focus-visible,
+    .slide-chip:focus-visible,
+    .reset-help-button:focus-visible,
+    .frame-delete:focus-visible,
+    .shape-choice:focus-visible {
+      outline: 2px solid rgba(31, 43, 224, 0.34);
+      outline-offset: 2px;
     }
 
     .editor-icon-button {
@@ -136,8 +172,8 @@
 
     .shape-menu {
       position: fixed;
-      top: 64px;
-      left: 50%;
+      top: var(--shape-menu-top, 64px);
+      left: var(--shape-menu-left, 50%);
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 6px;
@@ -164,6 +200,11 @@
       color: #111111;
       font: 600 12px/1 var(--font-body, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
       pointer-events: auto;
+    }
+
+    .shape-choice:hover {
+      border-color: rgba(17, 17, 17, 0.28);
+      background: #ffffff;
     }
 
     .toolbar-select {
@@ -208,7 +249,7 @@
 
     .slide-chip.active {
       border-color: var(--ink, #111111);
-      background: rgba(31, 43, 224, 0.10);
+      background: rgba(31, 43, 224, 0.08);
     }
 
     .slide-chip-num {
@@ -239,7 +280,7 @@
     .inspector-section.edit-attention {
       border-radius: 8px;
       background: rgba(255, 61, 139, 0.08);
-      box-shadow: 0 0 0 2px rgba(255, 61, 139, 0.22);
+      box-shadow: inset 0 0 0 1px rgba(255, 61, 139, 0.18);
     }
 
     .inspector-section:first-child {
@@ -273,7 +314,7 @@
       padding: 8px 10px;
       border: 1px solid rgba(17, 17, 17, 0.12);
       border-radius: 6px;
-      background: rgba(17, 17, 17, 0.04);
+      background: rgba(17, 17, 17, 0.03);
       color: rgba(17, 17, 17, 0.72);
       font: 600 12px/1.35 var(--font-body, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
     }
@@ -288,7 +329,7 @@
     .editor-select,
     .editor-textarea {
       width: 100%;
-      border: 1px solid rgba(17, 17, 17, 0.18);
+      border: 1px solid rgba(17, 17, 17, 0.14);
       border-radius: 6px;
       background: #ffffff;
       color: #111111;
@@ -350,7 +391,7 @@
       padding: 12px;
       border: 1.5px dashed rgba(31, 43, 224, 0.5);
       border-radius: 8px;
-      background: rgba(31, 43, 224, 0.06);
+      background: rgba(31, 43, 224, 0.05);
       color: rgba(17, 17, 17, 0.68);
       font-size: 13px;
       line-height: 1.38;
@@ -1069,21 +1110,23 @@
       white-space: nowrap;
       cursor: move;
       pointer-events: auto;
+      border-radius: 6px 6px 0 0;
     }
 
     .frame-delete {
       position: absolute;
-      top: -72px;
+      top: -40px;
       right: -2px;
       display: grid;
       place-items: center;
-      width: 64px;
-      height: 64px;
+      width: 32px;
+      height: 32px;
       padding: 0;
       border: 0;
       background: #b42318;
       color: #ffffff;
-      font: 800 42px/1 var(--font-body, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      border-radius: 0 6px 0 6px;
+      font: 800 22px/1 var(--font-body, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
       cursor: pointer;
       pointer-events: auto;
     }
@@ -1115,8 +1158,8 @@
 
     body.editing [data-editable],
     body.editing [data-editor-kind="text"] {
-      outline: 1.5px dashed rgba(31, 43, 224, 0.54);
-      outline-offset: 5px;
+      outline: 1px dashed rgba(31, 43, 224, 0.42);
+      outline-offset: 4px;
       cursor: text;
     }
 
@@ -1125,13 +1168,13 @@
     body.editing [data-editor-kind="media"],
     body.editing [data-editor-kind="box"],
     body.editing .editor-layer {
-      outline: 1.5px dashed rgba(31, 43, 224, 0.54);
-      outline-offset: 5px;
+      outline: 1px dashed rgba(31, 43, 224, 0.42);
+      outline-offset: 4px;
       cursor: pointer;
     }
 
     body.editing [data-editor-small="true"] {
-      outline-offset: 9px;
+      outline-offset: 7px;
     }
 
     body.editing .editor-selected {
@@ -1145,8 +1188,8 @@
     @media (max-width: 960px) {
       .editor-toolbar {
         top: 8px;
-        width: calc(100vw - 16px);
-        justify-content: flex-start;
+        left: 8px;
+        right: 8px;
       }
 
       .editor-slides {
@@ -1155,7 +1198,7 @@
         right: 8px;
         bottom: auto;
         width: auto;
-        height: 74px;
+        height: 78px;
         padding: 8px;
         overflow-x: auto;
         overflow-y: hidden;
@@ -1167,8 +1210,8 @@
       }
 
       .slide-chip {
-        width: 148px;
-        min-width: 148px;
+        width: 156px;
+        min-width: 156px;
       }
 
       .editor-panel {
@@ -1177,20 +1220,53 @@
         right: 8px;
         bottom: 8px;
         width: auto;
-        max-height: 240px;
+        max-height: 242px;
         padding: 10px 12px;
-        display: grid;
-        grid-template-columns: repeat(3, minmax(220px, 1fr));
-        gap: 12px;
+        display: block;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
 
       .inspector-section {
         min-width: 0;
-        padding: 0;
+        padding: 10px 0;
         border-top: 0;
       }
 
+      .inspector-section + .inspector-section {
+        border-top: 1px solid rgba(17, 17, 17, 0.10);
+      }
+
       .editor-textarea {
-        min-height: 64px;
+        min-height: 72px;
+      }
+
+      .field-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .inspector-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .file-picker-row {
+        grid-template-columns: 1fr;
+      }
+
+      .file-name {
+        min-height: 32px;
+      }
+
+      .editor-panel .editor-title:first-child {
+        margin-top: 2px;
+      }
+
+      .shape-menu {
+        top: var(--shape-menu-top, 60px);
+        width: calc(100vw - 24px);
+      }
+
+      .shape-menu .shape-choice {
+        white-space: nowrap;
       }
     }

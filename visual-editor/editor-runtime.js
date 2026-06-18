@@ -148,12 +148,12 @@
       <section class="inspector-section">
         <p class="editor-title">Layout</p>
         <div class="field-grid">
-          <label><span class="field-label">X</span><input class="editor-field" id="xInput" type="number" disabled></label>
-          <label><span class="field-label">Y</span><input class="editor-field" id="yInput" type="number" disabled></label>
+          <label><span class="field-label">X</span><input class="editor-field" id="xInput" type="number" min="-1920" max="1920" disabled></label>
+          <label><span class="field-label">Y</span><input class="editor-field" id="yInput" type="number" min="-1080" max="1080" disabled></label>
         </div>
         <div class="field-grid">
-          <label><span class="field-label">宽</span><input class="editor-field" id="widthInput" type="number" min="10" disabled></label>
-          <label><span class="field-label">高</span><input class="editor-field" id="heightInput" type="number" min="10" disabled></label>
+          <label><span class="field-label">宽</span><input class="editor-field" id="widthInput" type="number" min="10" max="1920" disabled></label>
+          <label><span class="field-label">高</span><input class="editor-field" id="heightInput" type="number" min="10" max="1080" disabled></label>
         </div>
         <div class="inspector-actions">
           <button class="editor-button" id="bringForwardBtn" type="button" disabled>上移层级</button>
@@ -180,11 +180,11 @@
           <option value="flip">翻转入场</option>
         </select>
         <div class="field-grid">
-          <label><span class="field-label">顺序</span><input class="editor-field" id="motionOrderInput" type="number" min="1" step="1" disabled></label>
-          <label><span class="field-label">延迟 ms</span><input class="editor-field" id="delayInput" type="number" min="0" step="50" disabled></label>
+          <label><span class="field-label">顺序</span><input class="editor-field" id="motionOrderInput" type="number" min="1" max="99" step="1" disabled></label>
+          <label><span class="field-label">延迟 ms</span><input class="editor-field" id="delayInput" type="number" min="0" max="20000" step="50" disabled></label>
         </div>
         <div class="field-grid">
-          <label><span class="field-label">时长 ms</span><input class="editor-field" id="durationInput" type="number" min="100" step="50" disabled></label>
+          <label><span class="field-label">时长 ms</span><input class="editor-field" id="durationInput" type="number" min="100" max="10000" step="50" disabled></label>
         </div>
         <div class="inspector-actions">
           <button class="editor-button" id="previewMotionBtn" type="button" disabled>预览当前</button>
@@ -304,6 +304,7 @@
         this.selected = null;
         this.hideTimeout = null;
         this.dragState = null;
+        this.fileDragDepth = 0;
         this.undoStack = [];
         this.historyIndex = -1;
         this.isRestoringHistory = false;
@@ -323,7 +324,7 @@
         this.toggle = document.getElementById("editToggle");
         this.hotzone = document.querySelector(".edit-hotzone");
         this.shell = document.getElementById("editorShell");
-        this.stage = document.getElementById("deckStage");
+        this.stage = presentation.stage || getStage();
         this.frame = document.getElementById("editorFrame");
         this.frameMove = document.getElementById("frameMove");
         this.frameDelete = document.getElementById("frameDelete");
@@ -391,7 +392,24 @@
         this.bindControls();
         this.bindEditableEvents();
         this.updateInspector();
-        requestAnimationFrame(() => this.replayActiveSlideMotion(false));
+        this.hideDeckResetControl();
+        requestAnimationFrame(() => {
+          this.hideDeckResetControl();
+          this.replayActiveSlideMotion(false);
+        });
+      }
+
+      hideDeckResetControl() {
+        const roots = [document, this.stage?.shadowRoot].filter(Boolean);
+        roots.forEach((root) => {
+          root.querySelectorAll?.(".deck-controls .reset, .overlay .btn.reset").forEach((button) => {
+            const divider = button.previousElementSibling;
+            if (divider?.classList.contains("divider")) divider.hidden = true;
+            button.hidden = true;
+            button.setAttribute("aria-hidden", "true");
+            button.tabIndex = -1;
+          });
+        });
       }
 
       attachFrame() {
@@ -858,10 +876,13 @@
         this.controls.previewSlideMotion.addEventListener("click", () => this.replayActiveSlideMotion());
         this.controls.restoreMotion.addEventListener("click", () => this.restoreOriginalMotion(this.selected, true));
 
+        const liveInspectorControls = new Set(["text", "fontSize", "color", "bg", "opacity", "x", "y", "width", "height", "order", "delay", "duration"]);
         ["text", "shape", "fontFamily", "fontSize", "color", "bg", "opacity", "x", "y", "width", "height", "anim", "order", "delay", "duration"].forEach((name) => {
           const control = this.controls[name];
-          control.addEventListener("input", () => this.applyInspectorValue(name));
-          control.addEventListener("change", () => this.applyInspectorValue(name));
+          if (liveInspectorControls.has(name)) {
+            control.addEventListener("input", () => this.applyInspectorValue(name, { recordHistory: false, refreshInspector: false }));
+          }
+          control.addEventListener("change", () => this.applyInspectorValue(name, { recordHistory: true }));
         });
 
         document.addEventListener("keydown", (event) => this.handleKeydown(event));
@@ -887,18 +908,16 @@
         });
         this.frameResize.addEventListener("pointerdown", (event) => this.startPointerAction(event, "resize"));
 
-        ["dragenter", "dragover"].forEach((eventName) => {
-          window.addEventListener(eventName, (event) => this.handleDrag(event));
-          this.controls.dropZone.addEventListener(eventName, (event) => this.handleDrag(event));
-        });
-        ["dragleave", "drop"].forEach((eventName) => {
-          window.addEventListener(eventName, (event) => this.clearDrag(event));
-          this.controls.dropZone.addEventListener(eventName, (event) => this.clearDrag(event));
-        });
+        window.addEventListener("dragenter", (event) => this.handleDragEnter(event));
+        window.addEventListener("dragover", (event) => this.handleDrag(event));
+        this.controls.dropZone.addEventListener("dragenter", (event) => this.handleDrag(event));
+        this.controls.dropZone.addEventListener("dragover", (event) => this.handleDrag(event));
+        window.addEventListener("dragleave", (event) => this.clearDrag(event));
         window.addEventListener("drop", (event) => this.handleDrop(event));
         window.addEventListener("resize", () => {
           this.applyEditorLayout();
           this.updateFrame();
+          if (!this.controls.shapeMenu.hidden) this.positionShapeMenu();
         });
       }
 
@@ -950,7 +969,13 @@
           button.type = "button";
           button.className = `slide-chip${index === this.presentation.currentSlide ? " active" : ""}`;
           const title = slide.dataset.title || slide.getAttribute("aria-label") || `Slide ${index + 1}`;
-          button.innerHTML = `<span class="slide-chip-num">${String(index + 1).padStart(2, "0")}</span><span class="slide-chip-title">${title}</span>`;
+          const number = document.createElement("span");
+          number.className = "slide-chip-num";
+          number.textContent = String(index + 1).padStart(2, "0");
+          const label = document.createElement("span");
+          label.className = "slide-chip-title";
+          label.textContent = title;
+          button.append(number, label);
           button.addEventListener("click", () => {
             this.presentation.showSlide(index);
             this.renderSlideRail();
@@ -961,6 +986,7 @@
       }
 
       handleKeydown(event) {
+        const formTarget = this.isFormTarget(event.target);
         if (event.key === "Escape" && !this.controls.confirmModal.hidden) {
           event.preventDefault();
           this.closeConfirm();
@@ -976,22 +1002,27 @@
           this.closeHelp();
           return;
         }
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && this.isActive && event.shiftKey) {
+        if (event.key === "Escape" && !this.controls.shapeMenu.hidden) {
+          event.preventDefault();
+          this.closeShapeMenu();
+          return;
+        }
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && this.isActive && event.shiftKey && !formTarget) {
           event.preventDefault();
           this.redo();
           return;
         }
-        if ((event.ctrlKey && !event.metaKey) && event.key.toLowerCase() === "y" && this.isActive) {
+        if ((event.ctrlKey && !event.metaKey) && event.key.toLowerCase() === "y" && this.isActive && !formTarget) {
           event.preventDefault();
           this.redo();
           return;
         }
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && this.isActive && !event.shiftKey) {
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && this.isActive && !event.shiftKey && !formTarget) {
           event.preventDefault();
           this.undo();
           return;
         }
-        if ((event.key === "e" || event.key === "E") && !this.isFormTarget(event.target)) {
+        if ((event.key === "e" || event.key === "E") && !formTarget) {
           event.preventDefault();
           this.toggleEditMode();
         }
@@ -999,7 +1030,7 @@
           event.preventDefault();
           this.exportHtml();
         }
-        if (!this.isActive || this.isFormTarget(event.target)) return;
+        if (!this.isActive || formTarget) return;
         if (event.key === "Delete" || event.key === "Backspace") {
           event.preventDefault();
           this.confirmDeleteSelected();
@@ -1101,6 +1132,7 @@
           element.removeAttribute("contenteditable");
         });
         this.applyEditorLayout();
+        this.hideDeckResetControl();
         this.attachFrame();
         this.updateFrame();
         if (!this.isActive) {
@@ -1265,9 +1297,11 @@
         this.controls.text.select();
       }
 
-      applyInspectorValue(name) {
+      applyInspectorValue(name, options = {}) {
         const element = this.selected;
         if (!element) return;
+        const recordHistory = options.recordHistory !== false;
+        const refreshInspector = options.refreshInspector !== false;
         if (name === "text") {
           this.setEditableText(element, this.controls.text.value);
         }
@@ -1282,10 +1316,28 @@
             element.style.removeProperty("font-family");
           }
         }
-        if (name === "fontSize") element.style.fontSize = `${this.controls.fontSize.value}px`;
+        if (name === "fontSize" && this.isTextElement(element)) {
+          const value = this.controls.fontSize.value;
+          if (value === "") {
+            element.style.removeProperty("font-size");
+          } else {
+            const size = this.clampNumber(value, 16, 8, 220);
+            element.style.fontSize = `${size}px`;
+            if (recordHistory) this.controls.fontSize.value = String(size);
+          }
+        }
         if (name === "color") this.setEditableTextColor(element, this.controls.color.value);
         if (name === "bg") this.setEditableSurfaceColor(element, this.controls.bg.value);
-        if (name === "opacity") element.style.opacity = String((Number(this.controls.opacity.value) || 0) / 100);
+        if (name === "opacity") {
+          const value = this.controls.opacity.value;
+          if (value === "") {
+            element.style.removeProperty("opacity");
+          } else {
+            const opacity = this.clampNumber(value, 100, 0, 100);
+            element.style.opacity = String(opacity / 100);
+            if (recordHistory) this.controls.opacity.value = String(opacity);
+          }
+        }
         if (["x", "y", "width", "height"].includes(name)) {
           this.clearElementMotionState(element);
           this.reconcileStoredStagePosition(element, { mode: "sync" });
@@ -1305,7 +1357,7 @@
           this.rememberMotionStableBox(element, this.reconcileStoredStagePosition(element, { mode: "sync" }) || this.getStableStageBox(element));
           this.applyAnimation(element, this.controls.anim.value, true);
           this.syncMotionControls(element);
-          this.save(false);
+          this.save(false, recordHistory);
           return;
         }
         if (name === "order") {
@@ -1316,19 +1368,23 @@
         }
         if (name === "delay") {
           if (!this.usesCustomMotion(element)) return;
-          element.dataset.editDelay = String(Math.max(0, Number(this.controls.delay.value) || 0));
+          const delay = this.clampNumber(this.controls.delay.value, 0, 0, 20000);
+          element.dataset.editDelay = String(delay);
           element.style.setProperty("--edit-delay", `${element.dataset.editDelay}ms`);
+          this.controls.delay.value = String(delay);
           this.scheduleMotionPreview();
         }
         if (name === "duration") {
           if (!this.usesCustomMotion(element)) return;
-          element.dataset.editDuration = String(Math.max(100, Number(this.controls.duration.value) || 640));
+          const duration = this.clampNumber(this.controls.duration.value, 640, 100, 10000);
+          element.dataset.editDuration = String(duration);
           element.style.setProperty("--edit-duration", `${element.dataset.editDuration}ms`);
+          this.controls.duration.value = String(duration);
           this.scheduleMotionPreview();
         }
         this.updateFrame();
-        this.updateInspector();
-        this.save(false);
+        if (refreshInspector) this.updateInspector();
+        this.save(false, recordHistory);
       }
 
       getSelectionLabel(element) {
@@ -1411,6 +1467,12 @@
         return Boolean(paint && paint !== "none" && paint !== "transparent" && paint !== "rgba(0, 0, 0, 0)");
       }
 
+      clampNumber(value, fallback, min, max) {
+        const number = Number(value);
+        const safe = Number.isFinite(number) ? number : fallback;
+        return Math.round(Math.max(min, Math.min(max, safe)));
+      }
+
       matchFontFamilyValue(value) {
         const normalized = (value || "").toLowerCase();
         const presets = [
@@ -1432,11 +1494,27 @@
         const willOpen = this.controls.shapeMenu.hidden;
         this.controls.shapeMenu.hidden = !willOpen;
         this.controls.addShape.setAttribute("aria-expanded", String(willOpen));
+        if (willOpen) this.positionShapeMenu();
       }
 
       closeShapeMenu() {
         this.controls.shapeMenu.hidden = true;
         this.controls.addShape.setAttribute("aria-expanded", "false");
+      }
+
+      positionShapeMenu() {
+        const button = this.controls.addShape.getBoundingClientRect();
+        const menu = this.controls.shapeMenu;
+        const menuWidth = menu.offsetWidth || 184;
+        const menuHeight = menu.offsetHeight || 180;
+        const compactEditor = window.innerWidth <= 960;
+        const gutter = compactEditor ? 12 : 10;
+        const center = compactEditor ? window.innerWidth / 2 : button.left + button.width / 2;
+        const left = Math.max(gutter + menuWidth / 2, Math.min(window.innerWidth - gutter - menuWidth / 2, center));
+        const preferredTop = compactEditor ? 60 : button.bottom + 8;
+        const top = Math.max(gutter, Math.min(window.innerHeight - gutter - menuHeight, preferredTop));
+        menu.style.setProperty("--shape-menu-left", `${Math.round(left)}px`);
+        menu.style.setProperty("--shape-menu-top", `${Math.round(top)}px`);
       }
 
       activeSlide() {
@@ -2066,43 +2144,69 @@
         });
       }
 
+      hasDraggedImage(event) {
+        return Array.from(event.dataTransfer?.items || []).some((item) => item.type.startsWith("image/"));
+      }
+
+      handleDragEnter(event) {
+        if (!this.isActive || !this.hasDraggedImage(event)) return;
+        this.fileDragDepth += 1;
+        this.handleDrag(event);
+      }
+
       handleDrag(event) {
         if (!this.isActive) return;
-        const hasImage = Array.from(event.dataTransfer?.items || []).some((item) => item.type.startsWith("image/"));
-        if (!hasImage) return;
+        if (!this.hasDraggedImage(event)) return;
         event.preventDefault();
         document.body.classList.add("dragging-file");
         this.controls.dropZone.classList.add("dragging");
       }
 
-      clearDrag(event) {
-        if (event.type === "drop") return;
+      resetFileDragState() {
+        this.fileDragDepth = 0;
         document.body.classList.remove("dragging-file");
         this.controls.dropZone.classList.remove("dragging");
       }
 
+      clearDrag(event) {
+        if (event.type === "drop") {
+          this.resetFileDragState();
+          return;
+        }
+        this.fileDragDepth = Math.max(0, this.fileDragDepth - 1);
+        if (this.fileDragDepth > 0) return;
+        this.resetFileDragState();
+      }
+
       handleDrop(event) {
         if (!this.isActive) return;
-        const file = Array.from(event.dataTransfer?.files || []).find((item) => item.type.startsWith("image/"));
-        if (!file) return;
+        const files = Array.from(event.dataTransfer?.files || []);
+        if (!files.length) return;
         event.preventDefault();
-        document.body.classList.remove("dragging-file");
-        this.controls.dropZone.classList.remove("dragging");
-        const isDropZone = Boolean(event.target.closest(".drop-zone"));
-        const isStageDrop = Boolean(event.target.closest(".deck-stage, deck-stage"));
+        this.resetFileDragState();
+        const file = files.find((item) => item.type.startsWith("image/"));
+        if (!file) {
+          this.toastMessage("请拖入图片文件");
+          return;
+        }
+        const isDropZone = Boolean(event.target.closest?.(".drop-zone"));
+        const isStageDrop = event.target === this.stage || this.stage.contains(event.target);
         if (!isDropZone && !isStageDrop) {
           this.toastMessage("把图片拖到画布或图片区来添加");
           return;
         }
-        const rawPoint = this.stagePointFromClient(event.clientX, event.clientY);
-        const point = this.clampInsertPoint(rawPoint.x, rawPoint.y, 520, 320);
+        let point = this.nextInsertPoint(520, 320);
+        if (isStageDrop) {
+          const rawPoint = this.stagePointFromClient(event.clientX, event.clientY);
+          point = this.clampInsertPoint(rawPoint.x, rawPoint.y, 520, 320);
+        }
         this.lastInsert = { x: point.x, y: point.y };
         const target = this.getEditableTarget(event.target);
         this.readImageFile(file, (dataUrl) => {
           if (target && this.isImageElement(target)) {
             this.replaceImage(target, dataUrl);
             this.select(target);
-          } else if (this.selected && this.isImageElement(this.selected) && event.target.closest(".drop-zone")) {
+          } else if (this.selected && this.isImageElement(this.selected) && isDropZone) {
             this.replaceImage(this.selected, dataUrl);
           } else {
             this.addImage(dataUrl, point.x, point.y);
@@ -2234,7 +2338,8 @@
 
       normalizeMotionOrder(value, fallback = 1) {
         const number = Number.parseInt(value, 10);
-        return Number.isFinite(number) ? Math.max(1, number) : Math.max(1, fallback);
+        const safe = Number.isFinite(number) ? number : fallback;
+        return Math.max(1, Math.min(99, safe));
       }
 
       nextMotionOrder(element) {
@@ -2665,6 +2770,7 @@
         this.selected = null;
         this.presentation.slides = Array.from(this.stage.querySelectorAll(".slide"));
         this.presentation.injectChrome?.();
+        this.hideDeckResetControl();
         this.prepareEditableElements();
         this.prepareEditableIds();
         this.bindEditableEvents();
