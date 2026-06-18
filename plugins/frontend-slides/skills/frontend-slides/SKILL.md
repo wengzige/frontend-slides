@@ -5,15 +5,34 @@ description: Create stunning, animation-rich HTML presentations from scratch or 
 
 # Frontend Slides
 
-Create zero-dependency, animation-rich HTML presentations that run entirely in the browser.
+Create zero-dependency, animation-rich HTML presentation folders that run entirely in the browser.
 
 ## Core Principles
 
-1. **Zero Dependencies** — Single HTML files with inline CSS/JS. No npm, no build tools.
+1. **Zero-Dependency Portable Folders** — Finished decks are project folders with root `index.html`, local `deck-stage.js`, local `visual-editor/editor-runtime.css`, local `visual-editor/editor-runtime.js`, and relative assets. Authored slide CSS/JS can live in `index.html`; do not depend on npm or build tools.
 2. **Show, Don't Tell** — Generate visual previews, not abstract choices. People discover what they want by seeing it.
 3. **Distinctive Design** — No generic "AI slop." Every presentation must feel custom-crafted.
 4. **Progressive Disclosure** — Read lightweight style indexes first. For bold templates, use small preview cards for style previews and load the full `design.md` only after the user picks that template.
-5. **Fixed 16:9 Stage (NON-NEGOTIABLE)** — Every deck uses a 1920×1080 slide canvas scaled as a whole to the viewport. Slides must stay 16:9 on every screen, including phones. Do not reflow slide content to fit the device.
+5. **Use The Shipped Editor Runtime (NON-NEGOTIABLE)** — Do not build a new editor for each deck. Generated decks must copy and mount the fixed runtime from `visual-editor/editor-runtime.css` and `visual-editor/editor-runtime.js`.
+6. **Fixed 16:9 Stage (NON-NEGOTIABLE)** — Every deck uses a 1920×1080 slide canvas scaled as a whole to the viewport. Slides must stay 16:9 on every screen, including phones. Do not reflow slide content to fit the device.
+
+## Shipped Editor Runtime Rule
+
+The visual editor is already implemented in this skill. It is not an invitation to create a deck-specific editor.
+
+Before generating a full deck, use the fixed integration contract in `html-template.md` and `visual-editor/README.md`. The finished folder must include local copies of:
+
+```text
+deck-stage.js
+visual-editor/editor-runtime.css
+visual-editor/editor-runtime.js
+```
+
+The generated `index.html` must load those files and call `window.FrontendSlidesEditor.mount(...)`. The only deck-specific editor code should be the small `DeckStagePresentationAdapter` wiring shown in `html-template.md`, plus the slide content/styles themselves.
+
+Do not satisfy the "editable deck" requirement by writing a new `.editor-shell`, custom inspector, custom save/download flow, custom slide rail, or custom object detection inside `index.html`. If a needed editor feature is missing, update the shared runtime files in `visual-editor/` first, then use that runtime. If the runtime files are unavailable in the current environment, tell the user rather than inventing a replacement editor.
+
+For existing or unknown HTML, do not promise arbitrary-page editing. The runtime is designed for fixed-stage Frontend Slides decks. If the input HTML is not already a compatible deck, convert or wrap the useful content into the supported contract first: `<deck-stage id="deckStage" width="1920" height="1080">`, direct `.slide` children, and 1920x1080 stage coordinates. Then mount the shipped runtime. Do not attach the editor directly to unrelated website/app HTML and claim full fidelity.
 
 ## Design Aesthetics
 
@@ -76,6 +95,7 @@ Determine what the user wants:
 
 When enhancing existing presentations, fixed-stage fitting is the biggest risk:
 
+0. **Check the deck contract first:** if the HTML is an unknown webpage/app rather than a fixed-stage deck, convert the useful content into the supported Frontend Slides structure before enabling the editor. The visual editor is not a general-purpose arbitrary HTML editor.
 1. **Before adding content:** Count existing elements, check against density limits
 2. **Adding images:** Fit them inside the 1920×1080 slide canvas. If slide already has max content, split into two slides
 3. **Adding text:** Max 4-6 bullets per slide. Exceeds limits? Split into continuation slides
@@ -219,7 +239,7 @@ If the user selected a bold template from `bold-template-pack`, read that one te
 - Preserve its fonts, palette, decorative vocabulary, spacing rhythm, and component grammar.
 - Generate the final deck as a fixed 1920×1080 stage scaled uniformly to the viewport, regardless of whether the source template originally used `deck-stage.js` or viewport-fluid CSS.
 - Treat viewport-fluid values in `design.md` as design proportions to translate into 1920×1080 stage coordinates. Do not keep them as live viewport reflow rules in the final deck.
-- Keep the deck as a portable project folder named after the presentation. The entry file is `index.html`; CSS/JS stay inline in that HTML, while images/videos and other media live beside it under `assets/`.
+- Keep the deck as a portable project folder named after the presentation. The entry file is `index.html`; authored slide CSS/JS stay in that HTML, fixed runtimes stay as local files, and images/videos or other media live beside it under `assets/`.
 - Do not copy demo slide content or mimic the source template too literally.
 - Use `template.html` only as a last-resort implementation reference for the selected template.
 - After generating, verify both content overflow and panel overlap in rendered browser screenshots. `scrollHeight` checks alone are not enough because grid panels can visually cover each other.
@@ -242,7 +262,7 @@ If the user selected a self-generated custom wildcard, treat that preview's CSS 
 - Portable project folder named after the presentation, with `index.html` as the entry file, local `deck-stage.js`, local `visual-editor/editor-runtime.css`, local `visual-editor/editor-runtime.js`, and all authored slide CSS/JS kept in the deck
 - Put every referenced image/video/media asset inside the same folder, normally under `assets/`, using relative paths such as `assets/hero.png`
 - Include the FULL contents of viewport-base.css in the `<style>` block
-- Include the fixed built-in `deck-stage.js` controller and reusable visual deck editor runtime from `html-template.md` by default, unless the user explicitly asks for a locked/export-only file
+- Copy the exact fixed built-in `deck-stage.js` controller and reusable visual deck editor runtime from this skill by default, unless the user explicitly asks for a locked/export-only file
 - Use fonts from Fontshare or Google Fonts — never system fonts
 - Add detailed comments explaining each section
 - Every section needs a clear `/* === SECTION NAME === */` comment block
@@ -252,6 +272,8 @@ If the user selected a self-generated custom wildcard, treat that preview's CSS 
 The post-draft editor is a general `frontend-slides` feature, not a one-off enhancement for a single deck. The editor must adapt to ordinary slide HTML; do not make the HTML adapt to a brittle editor.
 
 This fork now treats the editor and the deck controller as fixed first-class runtimes inside Frontend Slides. Keep editor behavior deck-neutral, implemented in `visual-editor/editor-runtime.css` and `visual-editor/editor-runtime.js`; keep slide navigation/scaling in the fixed `deck-stage.js` copied from `bold-template-pack/deck-stage.js`; document the contract in `visual-editor/README.md`; and synchronize root skill files, plugin copy, and local installed skill.
+
+If you are generating a presentation, reuse that runtime. Do not define `FrontendSlidesEditor` yourself, inline a new editor implementation, or create a second editor UI because it seems faster. Deck-specific work belongs in slide markup, styling, assets, and the adapter wiring only.
 
 - Target the fixed presentation contract: `<deck-stage id="deckStage" width="1920" height="1080">`, direct `.slide` children, and 1920x1080 stage coordinates. The editor may also support legacy `.deck-stage` fallback, but new generated decks should use the built-in Web Component controller. Do not hard-code a project name, deck title, or slide-specific class into the editor core.
 - Generated deck folders must include local copies of `deck-stage.js`, `visual-editor/editor-runtime.css`, and `visual-editor/editor-runtime.js`; `index.html` must mount the runtime with `window.FrontendSlidesEditor.mount(...)` through the fixed `DeckStagePresentationAdapter` from `html-template.md`. Do not inline or regenerate a fresh editor or custom presentation controller for each deck.

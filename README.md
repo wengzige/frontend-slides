@@ -41,12 +41,12 @@ Frontend Slides 是一个给本地 coding agent 使用的演示文稿生成 skil
 
 Visual Deck Editor 是写进生成后 `index.html` 里的浏览器编辑模式。它不是一个单独应用，也不是 npm 包。
 
-仓库里的 [`visual-editor/`](visual-editor/README.md) 目前是运行时契约文档目录，不是源码包。这个目录只有 README 是刻意的：它负责把编辑器支持什么、不支持什么、维护时要守住哪些边界写清楚。
+仓库里的 [`visual-editor/`](visual-editor/README.md) 是固定编辑器运行时目录。生成 deck 时要复制里面的 `editor-runtime.css` 和 `editor-runtime.js`，不要让 agent 给每套 deck 临时写一个新编辑器。
 
 当前实现关系是：
 
-- 编辑器代码通过 Frontend Slides 的生成模板进入最终 `index.html`
-- 具体实现指导在 `html-template.md` 和 plugin 内对应文件里
+- 编辑器运行时代码在 `visual-editor/editor-runtime.css` 和 `visual-editor/editor-runtime.js`
+- 生成模板在 `html-template.md` 里说明如何从 `index.html` 挂载这套固定运行时
 - `visual-editor/README.md` 说明运行时契约和维护边界
 
 它支持的能力：
@@ -126,7 +126,7 @@ git clone https://github.com/wengzige/frontend-slides.git ~/.claude/skills/front
 - `html-template.md`：HTML deck 和编辑器的模板/契约说明
 - `viewport-base.css`：固定 16:9 舞台的基础 CSS
 - `bold-template-pack/`：可选视觉模板
-- `visual-editor/`：Visual Deck Editor 的运行时契约和维护边界
+- `visual-editor/`：Visual Deck Editor 的固定运行时、运行时契约和维护边界
 - `plugins/frontend-slides/`：Claude Code plugin 包装
 
 ## Credits

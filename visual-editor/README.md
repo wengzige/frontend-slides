@@ -58,7 +58,7 @@ The editor should stay deck-neutral but not pretend to be a generic web page bui
 - Keep this root document and the plugin copy in sync.
 - Treat `editor-runtime.css` and `editor-runtime.js` as the source of truth for editor behavior.
 - Treat `bold-template-pack/deck-stage.js` as the source of truth for generated deck navigation, scaling, and editor safe-area support.
-- Do not inline a newly generated editor into individual decks.
+- Do not inline or generate a new editor implementation for individual decks. Generated decks should mount this runtime; deck-specific code should be limited to slide content, styling, assets, and the small adapter wiring.
 - Do not broaden claims beyond the fixed-stage deck contract without implementation and verification.
 - If editor implementation is later packaged separately, update this document to describe the new layout.
 

@@ -63,12 +63,12 @@ The maintained scope is:
 
 ## Built-In Visual Deck Editor
 
-The Visual Deck Editor is a browser editing mode written into generated Frontend Slides decks. It is documented separately because it has a clear integration contract, not because `visual-editor/` currently contains a standalone source package.
+The Visual Deck Editor is a browser editing mode mounted by generated Frontend Slides decks. `visual-editor/` contains the fixed local runtime files that generated decks should copy and use. Agents should not write a new editor for each deck.
 
 What exists today:
 
-- Generated decks include editor UI and behavior inline.
-- The implementation guidance lives in `html-template.md` and the corresponding plugin copy.
+- Generated decks include local copies of `visual-editor/editor-runtime.css` and `visual-editor/editor-runtime.js`.
+- `html-template.md` shows how `index.html` mounts that fixed runtime.
 - [`visual-editor/`](visual-editor/README.md) documents the runtime contract, supported assumptions, and maintenance boundaries.
 - It infers editable text, media, SVG/canvas content, and shape-like boxes from ordinary slide HTML.
 - It saves clean portable HTML by removing editor chrome and temporary detection markers.

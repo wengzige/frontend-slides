@@ -2,6 +2,10 @@
 
 Reference architecture for generating slide presentations. Every presentation follows a fixed 16:9 stage model: slides are authored at 1920×1080 and the whole stage scales to fit the browser window.
 
+The visual editor is a fixed runtime shipped with this skill. Generated decks must copy `deck-stage.js`, `visual-editor/editor-runtime.css`, and `visual-editor/editor-runtime.js` into the output folder and mount them from `index.html`. Do not write a fresh editor, inspector, save flow, or slide rail inside each generated deck.
+
+The runtime is intended for fixed-stage Frontend Slides decks, not arbitrary webpages. If input HTML is an unknown page or app, first convert or wrap the useful content into `<deck-stage id="deckStage" width="1920" height="1080">` with direct `.slide` children and 1920x1080 stage coordinates, then mount the runtime.
+
 ## Base HTML Structure
 
 ```html
@@ -202,6 +206,10 @@ Every presentation must include:
 The visual deck editor is a lightweight post-draft affordance. Do not ask the user whether they want it during the pre-generation Q&A. Include it by default unless the user explicitly asks for a locked/export-only presentation or no editing controls.
 
 Project boundary: the editor is a fixed portable deck-editor runtime inside Frontend Slides. Keep the implementation deck-neutral and compatible with the contract in `visual-editor/README.md`; do not bake in a specific generated deck, project name, or fork-only assumption.
+
+This section describes how to mount the shipped runtime. It is not a prompt to reimplement the runtime. Do not inline a new `.editor-shell`, object-detection system, localStorage draft model, or save/download flow in generated `index.html` files. If the editor needs behavior changes, make them in `visual-editor/editor-runtime.css` and `visual-editor/editor-runtime.js` first, then copy those shared files into the generated folder.
+
+Do not present this as a universal HTML editor. The detector is HTML-adaptive inside the supported deck contract, but unrelated responsive webpages, framework apps, shadow DOM, deeply transformed layouts, and canvas-rendered text may need conversion into normal slide DOM before editing is reliable.
 
 Generated output folders must include a local copy of:
 
