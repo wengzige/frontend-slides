@@ -15,26 +15,37 @@ Frontend Slides 是一个给本地 coding agent 使用的演示文稿生成 skil
 
 ## 这个仓库是什么
 
-这个仓库是 [zarazhangrui/frontend-slides](https://github.com/zarazhangrui/frontend-slides) 的维护 fork。
+这个仓库是 **@wengzige 独立维护的 Frontend Slides 版本**。它基于 [zarazhangrui/frontend-slides](https://github.com/zarazhangrui/frontend-slides) 的 MIT 开源基础继续开发，但不是把上游仓库原样复制一份。
 
 原仓库提供了 Frontend Slides 的核心思路和基础能力：用 agent 生成高质量、零依赖、动画丰富的 HTML slides，并通过视觉预览帮助用户选择风格。
 
-这个 fork 保留原项目方向，同时重点打磨：
+这个版本继续保留原项目方向，同时把重点放在实际使用体验上：
 
 - 更清晰的便携文件夹输出：`index.html` + 本地 `assets/`
-- 生成后的演示文稿自带可视化编辑模式
-- 更明确的 fork 安装、插件 metadata 和 agent 使用说明
-- 更清楚的编辑器契约和维护边界
+- 生成后的演示文稿自带可视化编辑模式，按 `E` 就能继续改
+- 编辑器可处理文字、图片、视觉块、字体、布局和部分入场动效
+- 保存时清理编辑器 UI 和临时标记，让结果仍然是干净的 HTML deck
+- 更明确的 Claude Code 插件安装、metadata 和 agent 使用说明
+- 更清楚的编辑器运行时契约和维护边界
 
-简单说：**原仓库是基础项目；这个 fork 是在基础项目之上继续打磨编辑器和便携交付体验。**
+简单说：**原仓库是基础项目；这个仓库是围绕“生成后还能继续编辑、能打包交付、能让 agent 稳定复用”的独立维护版本。**
+
+## 这个版本具体做了什么
+
+- **把生成结果从单个页面思路打磨成便携项目文件夹**：根目录 `index.html`，媒体资源放进本地 `assets/`，方便压缩、发送、解压后直接打开。
+- **加入并持续打磨 Visual Deck Editor**：生成后的 deck 可以在浏览器里进入编辑模式，继续改文字、图片、形状、字体、布局和部分动效。
+- **把编辑器做成固定运行时，而不是每套 deck 临时生成一份**：`visual-editor/` 维护统一的 `editor-runtime.css` 和 `editor-runtime.js`，减少一次性代码和行为漂移。
+- **补齐 agent 可执行的生成契约**：`html-template.md`、`SKILL.md`、`visual-editor/README.md` 明确说明固定舞台、编辑器挂载、保存清理和运行时边界。
+- **整理插件安装和公开仓库说明**：让这个仓库可以作为 Claude Code plugin/skill 来源使用，而不是只停留在实验代码状态。
+- **整合更大胆的视觉模板选择流程**：`bold-template-pack/` 提供可选风格系统，同时保持渐进读取，避免让 agent 一次性吃掉所有模板上下文。
 
 ## 和原仓库的关系
 
 - 原项目：[`zarazhangrui/frontend-slides`](https://github.com/zarazhangrui/frontend-slides)
-- 当前 fork：[`wengzige/frontend-slides`](https://github.com/wengzige/frontend-slides)
+- 当前独立维护版：[`wengzige/frontend-slides`](https://github.com/wengzige/frontend-slides)
 - 原作者署名和 MIT License 保留
-- 这个 fork 不把自己说成原始上游项目
-- 和这个 fork 的生成流程、便携输出、内置编辑模式相关的改动优先进入这个 fork
+- 这个仓库不把自己说成原始上游项目，也不抹掉原项目贡献
+- 和这个版本的生成流程、便携输出、内置编辑模式相关的改动优先进入这个仓库
 - 更通用、适合所有 Frontend Slides 用户的改动，可以再单独考虑是否向上游提交
 
 ## Visual Deck Editor 到底是什么
@@ -133,7 +144,7 @@ git clone https://github.com/wengzige/frontend-slides.git ~/.claude/skills/front
 
 Originally created by [@zarazhangrui](https://github.com/zarazhangrui).
 
-This fork is maintained by [@wengzige](https://github.com/wengzige).
+This independently maintained version is developed by [@wengzige](https://github.com/wengzige), with substantial work on portable output, the built-in Visual Deck Editor, plugin packaging, and agent-facing runtime documentation.
 
 ## License
 

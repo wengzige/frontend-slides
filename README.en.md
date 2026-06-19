@@ -13,7 +13,17 @@ Frontend Slides is a coding-agent skill for creating HTML presentations from scr
 - **No extra app required** — No npm, backend, account, or cloud service. Zip the folder and it still opens.
 - **Clean saved output** — Save removes editor UI, selection overlays, and temporary markers so the deck remains ordinary portable HTML.
 
-This repository is a maintained fork of the original [zarazhangrui/frontend-slides](https://github.com/zarazhangrui/frontend-slides) project. It keeps the same user-facing mission: generate portable, zero-dependency HTML decks. This fork focuses on a more polished generated-deck workflow: folder-first output, clearer agent instructions, and built-in visual editing for post-generation changes.
+This repository is **an independently maintained version of Frontend Slides by @wengzige**. It builds on the MIT-licensed foundation from [zarazhangrui/frontend-slides](https://github.com/zarazhangrui/frontend-slides), but it is not a plain copy of the upstream repository. This version focuses on the parts that make generated decks usable after the first agent pass: folder-first output, a built-in browser editor, clearer runtime contracts, and plugin-ready packaging.
+
+## What This Version Adds
+
+- **Portable folder output** — Decks are delivered as a project folder with root `index.html` and local `assets/`, so they can be zipped, shared, unzipped, and opened directly.
+- **Built-in Visual Deck Editor** — Generated decks can enter browser editing mode with `E`, then update text, media, visual blocks, fonts, layout, and some entrance motion.
+- **A reusable editor runtime** — `visual-editor/` maintains shared `editor-runtime.css` and `editor-runtime.js` files instead of asking agents to invent a new editor for every deck.
+- **Cleaner saved decks** — Save/export removes editor chrome, selection overlays, detection markers, and temporary editing state.
+- **Agent-facing runtime documentation** — `html-template.md`, `SKILL.md`, and `visual-editor/README.md` define the fixed-stage deck contract, editor mount points, and save cleanup rules.
+- **Plugin and skill packaging work** — The repo is maintained as a usable Claude Code plugin/skill source, with clearer install instructions and metadata.
+- **Bold template selection flow** — `bold-template-pack/` adds optional design-forward template systems while preserving progressive disclosure so agents do not bulk-load every template.
 
 ## What This Does
 
@@ -42,9 +52,9 @@ https://github.com/user-attachments/assets/ef57333e-f879-432a-afb9-180388982478
 - **Cleaner saved output** — Save/export should remove editor chrome, temporary detection markers, selection UI, and other editing-only state so the deck remains portable.
 - **Documented editor runtime contract** — [`visual-editor/`](visual-editor/README.md) documents the editor's supported deck contract and implementation boundaries.
 
-## Fork Scope
+## Maintained Scope
 
-This fork keeps Frontend Slides as a presentation-generation skill. It does not try to rebrand the original project or turn the repository into a generic web editor.
+This repository keeps Frontend Slides as a presentation-generation skill. It does not try to erase the original project, and it does not turn the repository into a generic web editor.
 
 The maintained scope is:
 
@@ -57,9 +67,9 @@ The maintained scope is:
 ## Relationship To Upstream
 
 - **Original project** — [`zarazhangrui/frontend-slides`](https://github.com/zarazhangrui/frontend-slides) created the core Frontend Slides skill, plugin shape, and presentation-generation workflow.
-- **This fork** — [`wengzige/frontend-slides`](https://github.com/wengzige/frontend-slides) keeps that foundation and focuses on fork-specific improvements around portable folder output, visual deck editing, and clearer agent-facing documentation.
-- **Attribution and license** — The original project credit and MIT license are preserved. This fork does not present itself as the upstream source of Frontend Slides.
-- **Contribution direction** — Changes that are specific to this fork's generated-deck workflow and editor runtime should target this repository. Broad improvements that belong in the original project can still be proposed upstream separately.
+- **This independently maintained version** — [`wengzige/frontend-slides`](https://github.com/wengzige/frontend-slides) keeps that foundation and adds substantial work around portable folder output, visual deck editing, plugin packaging, and clearer agent-facing runtime documentation.
+- **Attribution and license** — The original project credit and MIT license are preserved. This repository does not present itself as the upstream source of Frontend Slides.
+- **Contribution direction** — Changes that are specific to this version's generated-deck workflow and editor runtime should target this repository. Broad improvements that belong in the original project can still be proposed upstream separately.
 
 ## Built-In Visual Deck Editor
 
@@ -642,7 +652,7 @@ Uses [Playwright](https://playwright.dev) to screenshot each slide at 1920×1080
 
 Originally created by [@zarazhangrui](https://github.com/zarazhangrui).
 
-This fork is maintained by [@wengzige](https://github.com/wengzige) and includes the built-in Visual Deck Editor runtime described above.
+This independently maintained version is developed by [@wengzige](https://github.com/wengzige), with substantial work on portable output, the built-in Visual Deck Editor, plugin packaging, and agent-facing runtime documentation.
 
 ## License
 
